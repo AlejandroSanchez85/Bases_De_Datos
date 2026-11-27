@@ -33,6 +33,7 @@ final class MensajesRestriccion {
             Map.entry("chk_cliente_nombre", "El nombre del cliente no puede quedar vacío"),
             Map.entry("chk_cliente_correo", "El correo no es válido: debe tener la forma usuario@dominio y estar en minúsculas"),
             Map.entry("chk_cliente_telefono", "El teléfono debe tener de 7 a 15 dígitos"),
+            Map.entry("chk_cliente_correo_dominio", "Los correos @bogotickets.co son de los empleados: use otro correo"),
             Map.entry("chk_compra_metodo", "El método de pago debe ser TARJETA, PSE o EFECTIVO"));
 
     // FOREIGN KEY (23503) al crear o actualizar: el registro al que se apunta no existe

@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -29,6 +30,12 @@ public class ManejadorErrores {
     @ExceptionHandler(RecursoNoEncontradoException.class)
     public ResponseEntity<RespuestaError> noEncontrado(RecursoNoEncontradoException e) {
         return responder(HttpStatus.NOT_FOUND, e.getMessage());
+    }
+
+    // Un servicio exige un rol que la sesión no tiene (por ejemplo, comprar sin ser cliente)
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<RespuestaError> accesoDenegado(AccessDeniedException e) {
+        return responder(HttpStatus.FORBIDDEN, e.getMessage());
     }
 
     // Falta un campo marcado con @NotNull o @NotBlank en el cuerpo (@Valid)
@@ -82,7 +89,7 @@ public class ManejadorErrores {
      *   P0002  no existe (sp_anular_compra con una compra inexistente)       404
      *   23505  UNIQUE repetido,  23503 y 23001  FOREIGN KEY                  409
      *   23514  CHECK,  23502  NOT NULL,  22xxx  dato inválido                400
-     *   42501  el usuario de la base no tiene ese permiso                    403
+     *   42501  el rol de la sesión (SET ROLE) no tiene ese permiso           403
      *   08xxx, 28xxx, 3D000  no se pudo conectar a la base                   503
      */
     private ResponseEntity<RespuestaError> errorBaseDatos(PSQLException e, String metodoHttp) {
@@ -106,7 +113,7 @@ public class ManejadorErrores {
             case "22001" -> responder(HttpStatus.BAD_REQUEST, "Un texto supera la longitud permitida");
             case "22003" -> responder(HttpStatus.BAD_REQUEST, "Un número supera el valor permitido");
             case "42501" -> responder(HttpStatus.FORBIDDEN,
-                    "El usuario de la base de datos no tiene permiso para esta operación");
+                    "El rol de PostgreSQL de su sesión no tiene permiso para esta operación");
             case "28P01", "28000" -> responder(HttpStatus.SERVICE_UNAVAILABLE,
                     "PostgreSQL rechazó el usuario o la contraseña de application.properties");
             case "3D000" -> responder(HttpStatus.SERVICE_UNAVAILABLE,
