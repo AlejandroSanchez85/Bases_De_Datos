@@ -4,15 +4,40 @@ import {
     recargarDatos,
 } from './datos.js';
 import {
-    $, boton, crear, etiquetaEstado, fecha, fechaHora, hora, leerFormulario, limpiar, llenarSelect,
-    mostrarError, mostrarExito, numero, pesos, pintarDetalle, pintarTabla,
+    $, boton, crear, etiquetaEstado, fecha, fechaHora, hora, leerFormulario, limpiar, llenarSelect, mostrarError,
+    mostrarExito, mostrarVista, normalizar, numero, pesos, pintarDetalle, pintarTabla,
 } from './util.js';
 
 // Módulo del administrador. El CRUD de las cinco entidades usa el mismo formulario y la
 // misma tabla: cada entidad se describe abajo con su URL, sus campos y sus columnas.
-// soloAlCrear marca los campos que la API no cambia en el PUT; al editar se bloquean.
+// alEditar: 'bloquear' para los campos que la API no cambia en el PUT y 'ocultar' para
+// los que solo existen al crear (la contraseña inicial de un cliente).
 
 const ENTIDADES = {
+    eventos: {
+        nombre: 'evento', titulo: 'Eventos', tabla: 'evento', url: '/api/eventos', id: 'idEvento',
+        filtros: [
+            { clave: 'idEscenario', etiqueta: 'Escenario', opciones: opcionesEscenarios },
+            { clave: 'idTipo', etiqueta: 'Tipo', opciones: opcionesTipos },
+        ],
+        campos: [
+            { clave: 'idEscenario', etiqueta: 'Escenario', tipo: 'select', opciones: opcionesEscenarios, alEditar: 'bloquear' },
+            { clave: 'idTipoEvento', etiqueta: 'Tipo de evento', tipo: 'select', opciones: opcionesTipos },
+            { clave: 'nombre', etiqueta: 'Nombre' },
+            { clave: 'fecha', etiqueta: 'Fecha', tipo: 'date' },
+            { clave: 'horaInicio', etiqueta: 'Hora de inicio', tipo: 'time' },
+            { clave: 'horaFin', etiqueta: 'Hora de fin', tipo: 'time' },
+        ],
+        columnas: [
+            { titulo: 'Id', valor: e => e.idEvento, numero: true },
+            { titulo: 'Evento', valor: e => e.nombre },
+            { titulo: 'Tipo', valor: e => nombreTipo(e.idTipoEvento) },
+            { titulo: 'Escenario', valor: e => nombreEscenario(e.idEscenario) },
+            { titulo: 'Fecha', valor: e => fecha(e.fecha) },
+            { titulo: 'Horario', valor: e => `${hora(e.horaInicio)} a ${hora(e.horaFin)}` },
+        ],
+        describir: e => e.nombre,
+    },
     escenarios: {
         nombre: 'escenario', titulo: 'Escenarios', tabla: 'escenario', url: '/api/escenarios', id: 'idEscenario',
         campos: [
@@ -33,7 +58,7 @@ const ENTIDADES = {
         id: 'idLocalidad',
         filtros: [{ clave: 'idEscenario', etiqueta: 'Escenario', opciones: opcionesEscenarios }],
         campos: [
-            { clave: 'idEscenario', etiqueta: 'Escenario', tipo: 'select', opciones: opcionesEscenarios, soloAlCrear: true },
+            { clave: 'idEscenario', etiqueta: 'Escenario', tipo: 'select', opciones: opcionesEscenarios, alEditar: 'bloquear' },
             { clave: 'nombre', etiqueta: 'Nombre' },
             { clave: 'aforoMaximo', etiqueta: 'Aforo máximo', tipo: 'number' },
         ],
@@ -59,37 +84,14 @@ const ENTIDADES = {
         ],
         describir: t => t.nombre,
     },
-    eventos: {
-        nombre: 'evento', titulo: 'Eventos', tabla: 'evento', url: '/api/eventos', id: 'idEvento',
-        filtros: [
-            { clave: 'idEscenario', etiqueta: 'Escenario', opciones: opcionesEscenarios },
-            { clave: 'idTipo', etiqueta: 'Tipo', opciones: opcionesTipos },
-        ],
-        campos: [
-            { clave: 'idEscenario', etiqueta: 'Escenario', tipo: 'select', opciones: opcionesEscenarios, soloAlCrear: true },
-            { clave: 'idTipoEvento', etiqueta: 'Tipo de evento', tipo: 'select', opciones: opcionesTipos },
-            { clave: 'nombre', etiqueta: 'Nombre' },
-            { clave: 'fecha', etiqueta: 'Fecha', tipo: 'date' },
-            { clave: 'horaInicio', etiqueta: 'Hora de inicio', tipo: 'time' },
-            { clave: 'horaFin', etiqueta: 'Hora de fin', tipo: 'time' },
-        ],
-        columnas: [
-            { titulo: 'Id', valor: e => e.idEvento, numero: true },
-            { titulo: 'Evento', valor: e => e.nombre },
-            { titulo: 'Tipo', valor: e => nombreTipo(e.idTipoEvento) },
-            { titulo: 'Escenario', valor: e => nombreEscenario(e.idEscenario) },
-            { titulo: 'Fecha', valor: e => fecha(e.fecha) },
-            { titulo: 'Horario', valor: e => `${hora(e.horaInicio)} a ${hora(e.horaFin)}` },
-        ],
-        describir: e => e.nombre,
-    },
     clientes: {
         nombre: 'cliente', titulo: 'Clientes', tabla: 'cliente', url: '/api/clientes', id: 'idCliente',
         campos: [
-            { clave: 'documento', etiqueta: 'Documento', soloAlCrear: true },
+            { clave: 'documento', etiqueta: 'Documento', alEditar: 'bloquear' },
             { clave: 'nombreCompleto', etiqueta: 'Nombre completo' },
             { clave: 'correo', etiqueta: 'Correo' },
             { clave: 'telefono', etiqueta: 'Teléfono' },
+            { clave: 'contrasena', etiqueta: 'Contraseña inicial', tipo: 'password', alEditar: 'ocultar' },
         ],
         columnas: [
             { titulo: 'Id', valor: c => c.idCliente, numero: true },
@@ -103,8 +105,11 @@ const ENTIDADES = {
     },
 };
 
-let seccion = 'escenarios';
+const articulo = entidad => entidad.femenino ? 'la' : 'el';
+
+let seccion = 'eventos';
 let editando = null;            // id del registro que se está editando (null = creando)
+let filas = [];                 // registros de la entidad que se muestran en la tabla
 let localidadEditada = null;    // localidad cuyo precio se está cambiando
 
 export function iniciarAdmin() {
@@ -114,37 +119,41 @@ export function iniciarAdmin() {
     $('crud-cancelar').addEventListener('click', () => {
         limpiar($('crud-mensaje'));
         armarFormulario();
+        pintarFilas();
     });
+    $('crud-buscar').addEventListener('input', pintarFilas);
     $('precios-evento').addEventListener('change', cargarPrecios);
     $('precios-form').addEventListener('submit', guardarPrecio);
     $('precios-cancelar').addEventListener('click', () => {
         limpiar($('precios-mensaje'));
         terminarCambioPrecio();
+        cargarPrecios();
     });
-    $('compras-buscar').addEventListener('submit', buscarCompra);
+    $('ventas-evento').addEventListener('change', cargarVentas);
+    $('ventas-buscar').addEventListener('submit', evento => {
+        evento.preventDefault();
+        verCompra($('ventas-id').value.trim());
+    });
     $('historial-evento').addEventListener('change', cargarHistorial);
 
     // Cuando cambian las listas se actualizan los selectores de esta pantalla
     alActualizar(() => {
         llenarSelect($('precios-evento'), opcionesEventos(), 'Elija un evento');
+        llenarSelect($('ventas-evento'), opcionesEventos(), 'Todas las ventas recientes');
         llenarSelect($('historial-evento'), opcionesEventos(), 'Todos los cambios');
-        for (const campo of ENTIDADES[seccion] ? ENTIDADES[seccion].campos : []) {
-            const select = $('campo-' + campo.clave);
-            if (campo.tipo === 'select' && select) {
-                llenarSelect(select, campo.opciones(), 'Elija una opción');
-            }
-        }
     });
 }
 
-// Se llama cada vez que se abre la pestaña Administración
+// Se llama al iniciar sesión como administrador
 export function mostrarAdmin() {
+    mostrarVista('admin');
     mostrarSeccion(seccion);
 }
 
 function mostrarSeccion(nueva) {
     if (nueva !== seccion) {
-        limpiar($('crud-mensaje'), $('precios-mensaje'), $('compras-mensaje'), $('historial-mensaje'));
+        limpiar($('crud-mensaje'), $('precios-mensaje'), $('ventas-mensaje'), $('ventas-detalle'), $('historial-mensaje'));
+        $('crud-buscar').value = '';
     }
     seccion = nueva;
     document.querySelectorAll('#admin-menu button').forEach(b =>
@@ -153,7 +162,7 @@ function mostrarSeccion(nueva) {
     const esCrud = seccion in ENTIDADES;
     $('admin-crud').hidden = !esCrud;
     $('admin-precios').hidden = seccion !== 'precios';
-    $('admin-compras').hidden = seccion !== 'compras';
+    $('admin-ventas').hidden = seccion !== 'ventas';
     $('admin-historial').hidden = seccion !== 'historial';
 
     if (esCrud) {
@@ -162,14 +171,14 @@ function mostrarSeccion(nueva) {
         cargarTabla();
     } else if (seccion === 'precios') {
         cargarPrecios();
+    } else if (seccion === 'ventas') {
+        cargarVentas();
     } else if (seccion === 'historial') {
         cargarHistorial();
     }
 }
 
 // ---------- CRUD genérico
-
-const articulo = entidad => entidad.femenino ? 'la' : 'el';
 
 function armarFiltros() {
     const entidad = ENTIDADES[seccion];
@@ -199,6 +208,9 @@ function armarFormulario(registro = null) {
     const campos = $('crud-campos');
     campos.replaceChildren();
     for (const campo of entidad.campos) {
+        if (registro && campo.alEditar === 'ocultar') {
+            continue;
+        }
         let control;
         if (campo.tipo === 'select') {
             control = crear('select', { name: campo.clave, id: 'campo-' + campo.clave, 'data-numero': '' });
@@ -209,10 +221,10 @@ function armarFormulario(registro = null) {
         if (registro) {
             const valor = registro[campo.clave];
             control.value = valor == null ? '' : (campo.tipo === 'time' ? hora(valor) : valor);
-            control.disabled = Boolean(campo.soloAlCrear);
+            control.disabled = campo.alEditar === 'bloquear';
         }
         const etiqueta = crear('label', { clase: 'campo' }, crear('span', { texto: campo.etiqueta }), control);
-        if (registro && campo.soloAlCrear) {
+        if (registro && campo.alEditar === 'bloquear') {
             etiqueta.append(crear('small', { texto: 'No se puede cambiar después de crear el registro.' }));
         }
         campos.append(etiqueta);
@@ -229,24 +241,36 @@ async function cargarTabla() {
         }
     }
     const consulta = parametros.toString();
-    const url = consulta ? `${entidad.url}?${consulta}` : entidad.url;
     try {
-        const filas = await api.get(url);
-        pintarTabla($('crud-tabla'), entidad.columnas, filas, {
-            vacio: `No hay ${entidad.titulo.toLowerCase()} registrad${entidad.femenino ? 'as' : 'os'}.`,
-            acciones: fila => [
-                boton('Editar', () => {
-                    limpiar($('crud-mensaje'));
-                    armarFormulario(fila);
-                    $('crud-form').scrollIntoView({ block: 'nearest' });
-                }),
-                boton('Eliminar', () => eliminar(fila), 'boton chico peligro'),
-            ],
-            marcada: fila => editando !== null && fila[entidad.id] === editando,
-        });
+        filas = await api.get(consulta ? `${entidad.url}?${consulta}` : entidad.url);
+        pintarFilas();
     } catch (e) {
         mostrarError($('crud-mensaje'), e.message);
     }
+}
+
+// La búsqueda se hace en la página sobre los registros ya cargados
+function pintarFilas() {
+    const entidad = ENTIDADES[seccion];
+    const texto = normalizar($('crud-buscar').value.trim());
+    const visibles = texto === '' ? filas
+        : filas.filter(f => entidad.columnas.some(c => normalizar(c.valor(f)).includes(texto)));
+    $('crud-cuenta').textContent = visibles.length === filas.length
+        ? `${filas.length} registros`
+        : `${visibles.length} de ${filas.length} registros`;
+    pintarTabla($('crud-tabla'), entidad.columnas, visibles, {
+        vacio: `No hay ${entidad.titulo.toLowerCase()} con esos filtros.`,
+        acciones: fila => [
+            boton('Editar', () => {
+                limpiar($('crud-mensaje'));
+                armarFormulario(fila);
+                pintarFilas();
+                $('crud-form').scrollIntoView({ block: 'nearest' });
+            }),
+            boton('Eliminar', () => eliminar(fila), 'boton chico peligro'),
+        ],
+        marcada: fila => editando !== null && fila[entidad.id] === editando,
+    });
 }
 
 async function guardar(evento) {
@@ -297,7 +321,6 @@ function eventoDePrecios() {
 
 async function cargarPrecios() {
     const evento = eventoDePrecios();
-    terminarCambioPrecio();
     limpiar($('precios-tabla'));
     $('precios-info').textContent = '';
     $('precios-form').hidden = !evento;
@@ -310,15 +333,24 @@ async function cargarPrecios() {
 
     // Solo se ofrecen las localidades del escenario del evento
     const localidades = datos.localidades.filter(l => l.idEscenario === evento.idEscenario);
-    llenarSelect($('precios-localidad'), localidades.map(l => [l.idLocalidad, l.nombre]), 'Elija una localidad');
+    if (localidadEditada === null) {
+        llenarSelect($('precios-localidad'), localidades.map(l => [l.idLocalidad, l.nombre]), 'Elija una localidad');
+    }
 
     try {
-        const tarifas = await api.get(`/api/eventos/${evento.idEvento}/precios`);
+        const [tarifas, cupos] = await Promise.all([
+            api.get(`/api/eventos/${evento.idEvento}/precios`),
+            api.get(`/api/eventos/${evento.idEvento}/disponibilidad`),
+        ]);
+        const cupo = id => cupos.find(c => c.idLocalidad === id) || {};
         pintarTabla($('precios-tabla'), [
             { titulo: 'Localidad', valor: t => t.localidad },
             { titulo: 'Precio', valor: t => pesos(t.precio), numero: true },
+            { titulo: 'Aforo', valor: t => numero(cupo(t.idLocalidad).aforoMaximo), numero: true },
+            { titulo: 'Vendidas', valor: t => numero(cupo(t.idLocalidad).boletasVendidas), numero: true },
+            { titulo: 'Disponibles', valor: t => numero(cupo(t.idLocalidad).boletasDisponibles), numero: true },
         ], tarifas, {
-            vacio: 'Este evento todavía no tiene precios: no aparece en el catálogo.',
+            vacio: 'Este evento todavía no tiene precios: no aparece en la cartelera.',
             acciones: t => [
                 boton('Cambiar precio', () => empezarCambioPrecio(t)),
                 boton('Quitar', () => quitarPrecio(t), 'boton chico peligro'),
@@ -364,6 +396,7 @@ async function guardarPrecio(evento) {
             mostrarExito($('precios-mensaje'), `Nuevo precio de ${tarifa.localidad}: ${pesos(tarifa.precio)}. `
                 + 'El cambio quedó registrado en el historial de precios.');
         }
+        terminarCambioPrecio();
         await cargarPrecios();
     } catch (e) {
         mostrarError($('precios-mensaje'), e.message);
@@ -383,50 +416,75 @@ async function quitarPrecio(tarifa) {
     }
 }
 
-// ---------- Anulación de compras (F2)
+// ---------- Ventas y anulación de compras (F2)
 
-async function buscarCompra(evento) {
-    evento.preventDefault();
-    limpiar($('compras-mensaje'), $('compras-detalle'));
-    const idCompra = $('compras-id').value.trim();
+async function cargarVentas() {
+    const idEvento = $('ventas-evento').value;
+    limpiar($('ventas-mensaje'));
+    try {
+        const ventas = await api.get(idEvento ? `/api/compras?idEvento=${idEvento}` : '/api/compras');
+        pintarTabla($('ventas-tabla'), [
+            { titulo: 'Compra', valor: c => '#' + c.idCompra },
+            { titulo: 'Fecha', valor: c => fechaHora(c.fechaCompra) },
+            { titulo: 'Cliente', valor: c => c.cliente },
+            { titulo: 'Evento', valor: c => c.evento },
+            { titulo: 'Localidad', valor: c => c.localidades },
+            { titulo: 'Boletas', valor: c => `${c.boletasVigentes} de ${c.boletas}`, numero: true },
+            { titulo: 'Total', valor: c => pesos(c.total), numero: true },
+            { titulo: 'Estado', valor: c => etiquetaEstado(c.estado) },
+        ], ventas, {
+            vacio: 'No hay ventas para este evento.',
+            acciones: c => [boton('Ver', () => verCompra(c.idCompra))],
+        });
+    } catch (e) {
+        mostrarError($('ventas-mensaje'), e.message);
+    }
+}
+
+async function verCompra(idCompra) {
+    limpiar($('ventas-mensaje'), $('ventas-detalle'));
     if (!idCompra) {
-        mostrarError($('compras-mensaje'), 'Escriba el número de la compra.');
+        mostrarError($('ventas-mensaje'), 'Escriba el número de la compra.');
         return;
     }
     try {
         pintarCompra(await api.get(`/api/compras/${idCompra}`));
+        $('ventas-detalle').scrollIntoView({ block: 'nearest' });
     } catch (e) {
-        mostrarError($('compras-mensaje'), e.message);
+        mostrarError($('ventas-mensaje'), e.message);
     }
 }
 
-function pintarCompra(compra) {
-    const detalle = $('compras-detalle');
+function pintarCompra({ compra, boletas }) {
+    const detalle = $('ventas-detalle');
     limpiar(detalle);
-    const vigentes = compra.boletas.filter(b => b.estado === 'Vendida').length;
-    pintarDetalle(detalle, [
-        ['Compra', '#' + compra.idCompra],
+    const caja = crear('div', { clase: 'tarjeta' }, crear('h3', { texto: `Compra #${compra.idCompra}` }));
+    pintarDetalle(caja, [
         ['Cliente', compra.cliente],
-        ['Fecha', fechaHora(compra.fechaCompra)],
+        ['Fecha de compra', fechaHora(compra.fechaCompra)],
         ['Método de pago', compra.metodoPago],
+        ['Evento', compra.evento],
+        ['Fecha del evento', `${fecha(compra.fechaEvento)}, ${hora(compra.horaInicio)}`],
         ['Total pagado', pesos(compra.total)],
-        ['Boletas vigentes', `${vigentes} de ${compra.boletas.length}`],
+        ['Boletas vigentes', `${compra.boletasVigentes} de ${compra.boletas}`],
+        ['Estado', etiquetaEstado(compra.estado)],
     ]);
     const tabla = crear('div');
     pintarTabla(tabla, [
-        { titulo: 'Boleta', valor: b => b.idBoleta, numero: true },
-        { titulo: 'Evento', valor: b => b.evento },
-        { titulo: 'Fecha del evento', valor: b => fecha(b.fechaEvento) },
+        { titulo: 'Boleta', valor: b => '#' + b.idBoleta },
         { titulo: 'Localidad', valor: b => b.localidad },
         { titulo: 'Precio pagado', valor: b => pesos(b.precioPagado), numero: true },
         { titulo: 'Estado', valor: b => etiquetaEstado(b.estado) },
-    ], compra.boletas, { vacio: 'La compra no tiene boletas.' });
-    detalle.append(tabla);
+    ], boletas);
+    caja.append(tabla);
 
-    const anular = boton(vigentes > 0 ? 'Anular compra' : 'La compra ya está anulada',
+    const anular = boton(compra.boletasVigentes > 0 ? 'Anular compra' : 'La compra ya está anulada',
         () => anularCompra(compra), 'boton peligro');
-    anular.disabled = vigentes === 0;
-    detalle.append(crear('div', { clase: 'acciones' }, anular));
+    anular.disabled = compra.boletasVigentes === 0;
+    caja.append(crear('p', { clase: 'ayuda', texto: 'Al anular, las boletas pasan a Cancelada y sus cupos quedan '
+        + 'libres. No se borra ningún registro y no se anulan compras de eventos que ya se realizaron.' }),
+        crear('div', { clase: 'acciones' }, anular));
+    detalle.append(caja);
 }
 
 async function anularCompra(compra) {
@@ -436,10 +494,11 @@ async function anularCompra(compra) {
     try {
         const anulada = await api.patch(`/api/compras/${compra.idCompra}/anular`);
         pintarCompra(anulada);
-        mostrarExito($('compras-mensaje'),
-            `Compra #${anulada.idCompra} anulada: sus boletas quedaron canceladas y los cupos libres.`);
+        await cargarVentas();
+        mostrarExito($('ventas-mensaje'),
+            `Compra #${compra.idCompra} anulada: sus boletas quedaron canceladas y los cupos libres.`);
     } catch (e) {
-        mostrarError($('compras-mensaje'), e.message);
+        mostrarError($('ventas-mensaje'), e.message);
     }
 }
 

@@ -1,15 +1,19 @@
 import { api } from './api.js';
-import { alActualizar, opcionesEventos } from './datos.js';
 import {
-    $, barraOcupacion, fecha, filaTotales, limpiar, llenarSelect, mostrarError, numero, pesos, pintarTabla,
-    porcentaje,
+    $, barraOcupacion, crear, fecha, filaTotales, limpiar, llenarSelect, mostrarError, mostrarVista, numero, pesos,
+    pintarTabla, porcentaje,
 } from './util.js';
 
-// Módulo del analista de ventas: solo consulta (F5)
+// Módulo del analista de ventas: solo consulta (F5). El rol rol_analista solo lee
+// vistas, por eso la lista de eventos sale del mismo reporte de ocupación.
 
-let reporte = 'ocupacion';
+let reporte = 'resumen';
+let eventosCargados = false;
+
+const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
 const CARGAR = {
+    'resumen': cargarResumen,
     'ocupacion': cargarOcupacion,
     'baja': cargarBajaOcupacion,
     'promedio': cargarSobrePromedio,
@@ -25,11 +29,12 @@ export function iniciarReportes() {
         evento.preventDefault();
         cargarBajaOcupacion();
     });
-    alActualizar(() => llenarSelect($('ocupacion-evento'), opcionesEventos(), 'Todos los eventos'));
 }
 
-// Se llama cada vez que se abre la pestaña Reportes
+// Se llama al iniciar sesión como analista
 export function mostrarReportes() {
+    mostrarVista('reportes');
+    eventosCargados = false;
     mostrarReporte(reporte);
 }
 
@@ -37,16 +42,77 @@ function mostrarReporte(nuevo) {
     reporte = nuevo;
     document.querySelectorAll('#reportes-menu button').forEach(b =>
         b.classList.toggle('activo', b.dataset.reporte === reporte));
-    document.querySelectorAll('.tarjeta.reporte').forEach(t => {
+    document.querySelectorAll('#vista-reportes .reporte').forEach(t => {
         t.hidden = t.dataset.reporte !== reporte;
     });
     CARGAR[reporte]();
 }
 
+// ---------- Resumen: cifras generales y ventas agrupadas
+
+async function cargarResumen() {
+    limpiar($('resumen-mensaje'));
+    let r;
+    try {
+        r = await api.get('/api/reportes/resumen');
+    } catch (e) {
+        mostrarError($('resumen-mensaje'), e.message);
+        return;
+    }
+    const cifras = [
+        ['Recaudo', pesos(r.recaudo)],
+        ['Boletas vendidas', numero(r.boletasVendidas)],
+        ['Compras', numero(r.compras)],
+        ['Clientes que han comprado', numero(r.clientesConCompras)],
+        ['Eventos a la venta', numero(r.eventosALaVenta)],
+        ['Boletas anuladas', numero(r.boletasCanceladas)],
+    ];
+    $('resumen-cifras').replaceChildren(...cifras.map(([texto, valor]) =>
+        crear('div', { clase: 'cifra' }, crear('span', { texto }), crear('strong', { texto: valor }))));
+    pintarBarras($('resumen-tipos'), r.porTipoEvento);
+    pintarBarras($('resumen-escenarios'), r.porEscenario);
+
+    // Columnas por mes: la altura es proporcional a las boletas vendidas
+    const maximo = Math.max(...r.porMes.map(m => m.boletas), 1);
+    $('resumen-meses').replaceChildren(...r.porMes.map(m => {
+        const [anio, mes] = m.nombre.split('-');
+        const columna = crear('div', { clase: 'columna', title: pesos(m.recaudo) });
+        columna.style.height = Math.max(4, 160 * m.boletas / maximo) + 'px';
+        return crear('div', { clase: 'mes' }, crear('strong', { texto: numero(m.boletas) }), columna,
+            crear('span', { texto: `${MESES[Number(mes) - 1]} ${anio.slice(2)}` }));
+    }));
+}
+
+// Barras horizontales con el recaudo de cada grupo
+function pintarBarras(contenedor, grupos) {
+    const maximo = Math.max(...grupos.map(g => Number(g.recaudo)), 1);
+    contenedor.replaceChildren(crear('div', { clase: 'barras' }, ...grupos.map(g => {
+        const relleno = crear('span');
+        relleno.style.width = (100 * Number(g.recaudo) / maximo) + '%';
+        return crear('div', { clase: 'barra-fila' },
+            crear('span', { texto: g.nombre }),
+            crear('div', { clase: 'pista' }, relleno),
+            crear('span', { clase: 'valor', texto: pesos(g.recaudo), title: numero(g.boletas) + ' boletas' }));
+    })));
+}
+
+// ---------- Ocupación y recaudo por localidad
+
 async function cargarOcupacion() {
-    const idEvento = $('ocupacion-evento').value;
     limpiar($('ocupacion-mensaje'));
     $('ocupacion-resumen').textContent = '';
+    if (!eventosCargados) {
+        try {
+            const todas = await api.get('/api/reportes/ocupacion');
+            const eventos = [...new Map(todas.map(f => [f.idEvento, `${f.evento} · ${fecha(f.fechaEvento)}`])).entries()];
+            llenarSelect($('ocupacion-evento'), eventos, 'Todos los eventos');
+            eventosCargados = true;
+        } catch (e) {
+            mostrarError($('ocupacion-mensaje'), e.message);
+            return;
+        }
+    }
+    const idEvento = $('ocupacion-evento').value;
     try {
         const filas = await api.get(idEvento ? `/api/reportes/ocupacion?idEvento=${idEvento}` : '/api/reportes/ocupacion');
         const aforo = filas.reduce((suma, f) => suma + f.aforoMaximo, 0);

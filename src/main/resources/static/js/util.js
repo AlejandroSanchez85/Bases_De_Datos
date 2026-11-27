@@ -27,6 +27,44 @@ export function fecha(texto) {
     return formatoFecha.format(new Date(anio, mes - 1, dia));
 }
 
+// '2026-12-12' -> 'sábado, 12 de diciembre de 2026'
+const formatoLargo = new Intl.DateTimeFormat('es-CO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+export function fechaLarga(texto) {
+    const [anio, mes, dia] = texto.split('-').map(Number);
+    return formatoLargo.format(new Date(anio, mes - 1, dia));
+}
+
+// Cuadro con el día y el mes de una fecha, como en una boleta
+export function cuadroDia(texto) {
+    const [anio, mes, dia] = texto.split('-').map(Number);
+    const nombreMes = new Intl.DateTimeFormat('es-CO', { month: 'short' }).format(new Date(anio, mes - 1, dia));
+    return crear('div', { clase: 'dia' }, crear('strong', { texto: String(dia) }),
+        crear('span', { texto: nombreMes.replace('.', '') }));
+}
+
+// Fecha de hoy (o dentro de unos días) como '2026-11-27', en hora local, para
+// compararla con las fechas que devuelve la API
+export function hoy(masDias = 0) {
+    const d = new Date();
+    d.setDate(d.getDate() + masDias);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// Quita tildes y pasa a minúsculas, para buscar sin importar cómo se escribió
+export function normalizar(texto) {
+    return String(texto ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
+// Muestra una sola vista de la página y marca su opción en el menú
+export function mostrarVista(vista, opcionMenu = vista) {
+    document.querySelectorAll('main > .vista').forEach(s => {
+        s.hidden = s.id !== 'vista-' + vista;
+    });
+    document.querySelectorAll('#menu button').forEach(b => b.classList.toggle('activo', b.dataset.vista === opcionMenu));
+    window.scrollTo(0, 0);
+}
+
 // '19:00:00' -> '19:00'
 export function hora(texto) {
     return texto ? texto.slice(0, 5) : '';
@@ -129,7 +167,8 @@ export function filaTotales(celdas) {
 export function pintarDetalle(contenedor, pares) {
     contenedor.append(crear('div', { clase: 'detalle' },
         ...pares.map(([etiqueta, valor]) =>
-            crear('div', {}, crear('span', { texto: etiqueta }), valor instanceof Node ? valor : String(valor ?? '')))));
+            crear('div', {}, crear('span', { clase: 'rotulo', texto: etiqueta }),
+                valor instanceof Node ? valor : String(valor ?? '')))));
 }
 
 export function limpiar(...contenedores) {
