@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>BogoTickets</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="css/estilos.css">
+    <script type="module" src="js/app.js"></script>
+</head>
+<body>
+<header class="cabecera">
+    <div class="marca">
+        <span class="logo">BogoTickets</span>
+        <span class="lema">Boletería para escenarios de Bogotá</span>
+    </div>
+    <nav class="menu" aria-label="Módulos">
+        <button type="button" data-vista="catalogo" class="activo">Catálogo y compra</button>
+        <button type="button" data-vista="boletas">Mis boletas</button>
+        <button type="button" data-vista="admin">Administración</button>
+        <button type="button" data-vista="reportes">Reportes</button>
+    </nav>
+</header>
+
+<main>
+    <div id="mensaje-global"></div>
+
+    <!-- ============ Cliente: catálogo y compra ============ -->
+    <section id="vista-catalogo" class="vista">
+        <div class="tarjeta">
+            <h2>Eventos a la venta</h2>
+            <p class="fuente">Vista v_catalogo_eventos · GET /api/catalogo</p>
+            <div id="catalogo-mensaje"></div>
+            <div id="tabla-catalogo"></div>
+        </div>
+
+        <div id="panel-compra" class="tarjeta" hidden>
+            <div class="encabezado">
+                <div>
+                    <h2 id="compra-evento"></h2>
+                    <p id="compra-info" class="suave"></p>
+                </div>
+                <button type="button" id="compra-cerrar" class="boton secundario">Cerrar</button>
+            </div>
+            <div class="columnas-compra">
+                <div>
+                    <h3>Disponibilidad por localidad</h3>
+                    <p class="fuente">Vista v_ocupacion_localidad · GET /api/eventos/{id}/disponibilidad</p>
+                    <div id="tabla-disponibilidad"></div>
+                </div>
+                <div>
+                    <h3>Comprar boletas</h3>
+                    <p class="fuente">Función fn_registrar_compra · POST /api/compras</p>
+                    <form id="form-compra" class="formulario una-columna" novalidate>
+                        <label class="campo"><span>Cliente</span>
+                            <select name="idCliente" id="compra-cliente" data-numero></select></label>
+                        <label class="campo"><span>Localidad</span>
+                            <select name="idLocalidad" id="compra-localidad" data-numero></select></label>
+                        <label class="campo"><span>Cantidad de boletas</span>
+                            <input name="cantidad" id="compra-cantidad" type="number" value="1"></label>
+                        <label class="campo"><span>Método de pago</span>
+                            <select name="metodoPago" id="compra-metodo">
+                                <option value="TARJETA">Tarjeta</option>
+                                <option value="PSE">PSE</option>
+                                <option value="EFECTIVO">Efectivo</option>
+                            </select></label>
+                        <p class="total">Total: <strong id="compra-total">$ 0</strong></p>
+                        <button type="submit" class="boton">Confirmar compra</button>
+                    </form>
+                    <p class="ayuda">De 1 a 10 boletas por compra. Si alguna boleta se queda sin cupo,
+                        la compra completa se rechaza y no se guarda nada.</p>
+                    <div id="compra-mensaje"></div>
+                    <div id="compra-resultado"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============ Cliente: historial de compras ============ -->
+    <section id="vista-boletas" class="vista" hidden>
+        <div class="tarjeta">
+            <h2>Historial de compras</h2>
+            <p class="fuente">Vista v_boletas_detalle · GET /api/clientes/{id}/boletas</p>
+            <div class="filtros">
+                <label class="campo"><span>Cliente</span><select id="boletas-cliente"></select></label>
+            </div>
+            <div id="boletas-mensaje"></div>
+            <p id="boletas-resumen" class="suave"></p>
+            <div id="tabla-boletas"></div>
+        </div>
+
+        <div class="tarjeta">
+            <h2>Consultar una boleta</h2>
+            <p class="fuente">Vista v_boletas_detalle · GET /api/boletas/{id}</p>
+            <form id="form-boleta" class="fila-busqueda" novalidate>
+                <label class="campo"><span>Código de la boleta</span><input id="boleta-id" type="number"></label>
+                <button type="submit" class="boton">Buscar</button>
+            </form>
+            <div id="boleta-mensaje"></div>
+            <div id="boleta-detalle"></div>
+        </div>
+    </section>
+
+    <!-- ============ Administrador ============ -->
+    <section id="vista-admin" class="vista" hidden>
+        <nav class="pildoras" id="admin-menu" aria-label="Administración">
+            <button type="button" data-seccion="escenarios" class="activo">Escenarios</button>
+            <button type="button" data-seccion="localidades">Localidades</button>
+            <button type="button" data-seccion="tipos">Tipos de evento</button>
+            <button type="button" data-seccion="eventos">Eventos</button>
+            <button type="button" data-seccion="clientes">Clientes</button>
+            <button type="button" data-seccion="precios">Precios</button>
+            <button type="button" data-seccion="compras">Anular compras</button>
+            <button type="button" data-seccion="historial">Historial de precios</button>
+        </nav>
+
+        <!-- CRUD: el formulario y la tabla se arman según la entidad elegida (admin.js) -->
+        <div id="admin-crud" class="columnas-admin">
+            <div class="tarjeta">
+                <h3 id="crud-titulo-form"></h3>
+                <form id="crud-form" class="formulario una-columna" novalidate>
+                    <div id="crud-campos" class="formulario una-columna"></div>
+                    <div class="acciones">
+                        <button type="submit" class="boton" id="crud-guardar">Guardar</button>
+                        <button type="button" class="boton secundario" id="crud-cancelar">Cancelar</button>
+                    </div>
+                </form>
+                <div id="crud-mensaje"></div>
+            </div>
+            <div class="tarjeta">
+                <div class="encabezado">
+                    <h3 id="crud-titulo-tabla"></h3>
+                    <div id="crud-filtros" class="filtros"></div>
+                </div>
+                <p class="fuente" id="crud-fuente"></p>
+                <div id="crud-tabla"></div>
+            </div>
+        </div>
+
+        <div id="admin-precios" hidden>
+            <div class="tarjeta">
+                <div class="filtros">
+                    <label class="campo ancho"><span>Evento</span><select id="precios-evento"></select></label>
+                </div>
+                <p id="precios-info" class="suave"></p>
+                <p class="ayuda">Cada cambio de precio lo registra el trigger trg_auditar_precio en el historial.
+                    Las boletas ya vendidas conservan el precio que se pagó.</p>
+            </div>
+            <div class="columnas-admin">
+                <div class="tarjeta">
+                    <h3 id="precios-titulo-form">Asignar precio</h3>
+                    <form id="precios-form" class="formulario una-columna" novalidate>
+                        <label class="campo"><span>Localidad</span>
+                            <select name="idLocalidad" id="precios-localidad" data-numero></select></label>
+                        <label class="campo"><span>Precio (COP)</span>
+                            <input name="precio" id="precios-valor" type="number"></label>
+                        <div class="acciones">
+                            <button type="submit" class="boton">Guardar</button>
+                            <button type="button" class="boton secundario" id="precios-cancelar">Cancelar</button>
+                        </div>
+                    </form>
+                    <div id="precios-mensaje"></div>
+                </div>
+                <div class="tarjeta">
+                    <h3>Tarifas del evento</h3>
+                    <p class="fuente">Tabla precio_localidad · /api/eventos/{id}/precios</p>
+                    <div id="precios-tabla"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="admin-compras" hidden>
+            <div class="tarjeta">
+                <h3>Anular una compra</h3>
+                <p class="fuente">Procedimiento sp_anular_compra · PATCH /api/compras/{id}/anular</p>
+                <form id="compras-buscar" class="fila-busqueda" novalidate>
+                    <label class="campo"><span>Número de compra</span><input id="compras-id" type="number"></label>
+                    <button type="submit" class="boton">Buscar</button>
+                </form>
+                <p class="ayuda">Al anular, todas las boletas de la compra pasan a Cancelada y sus cupos quedan libres.
+                    No se borra ningún registro. El número de compra aparece al comprar y en «Mis boletas».</p>
+                <div id="compras-mensaje"></div>
+                <div id="compras-detalle"></div>
+            </div>
+        </div>
+
+        <div id="admin-historial" hidden>
+            <div class="tarjeta">
+                <div class="encabezado">
+                    <h3>Historial de cambios de precio y aforo</h3>
+                    <div class="filtros">
+                        <label class="campo ancho"><span>Evento</span><select id="historial-evento"></select></label>
+                    </div>
+                </div>
+                <p class="fuente">Tabla historial_precios (la llenan los triggers) · GET /api/historial-precios</p>
+                <div id="historial-mensaje"></div>
+                <div id="historial-tabla"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============ Analista de ventas ============ -->
+    <section id="vista-reportes" class="vista" hidden>
+        <nav class="pildoras" id="reportes-menu" aria-label="Reportes">
+            <button type="button" data-reporte="ocupacion" class="activo">Ocupación y recaudo</button>
+            <button type="button" data-reporte="baja">Baja ocupación</button>
+            <button type="button" data-reporte="promedio">Tarifas sobre el promedio</button>
+            <button type="button" data-reporte="sin-compras">Clientes sin compras</button>
+            <button type="button" data-reporte="clientes">Comportamiento de compra</button>
+        </nav>
+
+        <div class="tarjeta reporte" data-reporte="ocupacion">
+            <div class="encabezado">
+                <h3>Ocupación y recaudo por localidad</h3>
+                <div class="filtros">
+                    <label class="campo ancho"><span>Evento</span><select id="ocupacion-evento"></select></label>
+                </div>
+            </div>
+            <p class="fuente">Vista v_ocupacion_localidad · GET /api/reportes/ocupacion</p>
+            <div id="ocupacion-mensaje"></div>
+            <p id="ocupacion-resumen" class="resumen"></p>
+            <div id="ocupacion-tabla"></div>
+        </div>
+
+        <div class="tarjeta reporte" data-reporte="baja" hidden>
+            <h3>Eventos con baja ocupación</h3>
+            <p class="fuente">Subconsulta en FROM sobre v_ocupacion_localidad · GET /api/reportes/eventos-baja-ocupacion</p>
+            <form id="form-baja" class="fila-busqueda" novalidate>
+                <label class="campo"><span>Ocupación menor a (%)</span><input id="baja-umbral" type="number" value="50"></label>
+                <button type="submit" class="boton">Consultar</button>
+            </form>
+            <div id="baja-mensaje"></div>
+            <div id="baja-tabla"></div>
+        </div>
+
+        <div class="tarjeta reporte" data-reporte="promedio" hidden>
+            <h3>Tarifas por encima del promedio</h3>
+            <p class="fuente">Subconsulta escalar en WHERE · GET /api/reportes/precios-sobre-promedio</p>
+            <div id="promedio-mensaje"></div>
+            <p id="promedio-resumen" class="resumen"></p>
+            <div id="promedio-tabla"></div>
+        </div>
+
+        <div class="tarjeta reporte" data-reporte="sin-compras" hidden>
+            <h3>Clientes registrados que nunca han comprado</h3>
+            <p class="fuente">Subconsulta NOT EXISTS · GET /api/reportes/clientes-sin-compras</p>
+            <div id="sin-compras-mensaje"></div>
+            <div id="sin-compras-tabla"></div>
+        </div>
+
+        <div class="tarjeta reporte" data-reporte="clientes" hidden>
+            <h3>Comportamiento de compra por cliente</h3>
+            <p class="fuente">Vista v_clientes_publico (sin documento ni teléfono) · GET /api/reportes/clientes</p>
+            <div id="clientes-mensaje"></div>
+            <div id="clientes-tabla"></div>
+        </div>
+    </section>
+</main>
+
+<footer class="pie">
+    BogoTickets · Proyecto final de Bases de Datos, grupo 020-83 ·
+    <a href="swagger-ui.html" target="_blank" rel="noopener">Documentación de la API (Swagger)</a>
+</footer>
+</body>
+</html>

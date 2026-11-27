@@ -1,0 +1,487 @@
+:root {
+    --azul-oscuro: #1f3864;
+    --azul: #2e74b5;
+    --azul-claro: #e8f0fa;
+    --fondo: #f3f5f9;
+    --borde: #d5dce6;
+    --texto: #23272f;
+    --suave: #5f6b7a;
+    --verde: #1e7d45;
+    --verde-claro: #e5f4ea;
+    --rojo: #b42318;
+    --rojo-claro: #fdecea;
+    --radio: 6px;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+/* Sin esto, una regla display: grid o flex le gana al atributo hidden */
+[hidden] {
+    display: none !important;
+}
+
+body {
+    margin: 0;
+    font-family: "Segoe UI", Roboto, Arial, sans-serif;
+    font-size: 15px;
+    color: var(--texto);
+    background: var(--fondo);
+}
+
+/* ---------- Cabecera y menú ---------- */
+
+.cabecera {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 28px;
+    background: var(--azul-oscuro);
+    color: #fff;
+}
+
+.marca {
+    display: flex;
+    flex-direction: column;
+}
+
+.logo {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.lema {
+    font-size: 13px;
+    opacity: 0.8;
+}
+
+.menu {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.menu button {
+    padding: 8px 14px;
+    border: 0;
+    border-radius: var(--radio);
+    background: transparent;
+    color: #dbe5f3;
+    font: inherit;
+    cursor: pointer;
+}
+
+.menu button:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.menu button.activo {
+    background: #fff;
+    color: var(--azul-oscuro);
+    font-weight: 600;
+}
+
+main {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 22px 20px 10px;
+}
+
+.pie {
+    padding: 18px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--suave);
+}
+
+.pie a {
+    color: var(--azul);
+}
+
+/* ---------- Tarjetas y textos ---------- */
+
+.tarjeta {
+    margin-bottom: 18px;
+    padding: 18px 20px;
+    background: #fff;
+    border: 1px solid var(--borde);
+    border-radius: var(--radio);
+}
+
+h2, h3 {
+    margin: 0 0 4px;
+    color: var(--azul-oscuro);
+}
+
+h2 {
+    font-size: 20px;
+}
+
+h3 {
+    font-size: 17px;
+}
+
+.fuente {
+    margin: 0 0 12px;
+    font-size: 12px;
+    font-family: Consolas, "Courier New", monospace;
+    color: var(--suave);
+}
+
+.suave {
+    margin: 4px 0 10px;
+    color: var(--suave);
+}
+
+.ayuda {
+    margin: 10px 0;
+    font-size: 13px;
+    color: var(--suave);
+}
+
+.resumen {
+    margin: 0 0 12px;
+    font-weight: 600;
+}
+
+.encabezado {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+/* ---------- Pestañas internas ---------- */
+
+.pildoras {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 16px;
+}
+
+.pildoras button {
+    padding: 7px 14px;
+    border: 1px solid var(--borde);
+    border-radius: 20px;
+    background: #fff;
+    color: var(--texto);
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.pildoras button:hover {
+    border-color: var(--azul);
+}
+
+.pildoras button.activo {
+    background: var(--azul);
+    border-color: var(--azul);
+    color: #fff;
+}
+
+/* ---------- Formularios ---------- */
+
+.formulario {
+    display: grid;
+    gap: 12px;
+}
+
+.una-columna {
+    grid-template-columns: 1fr;
+}
+
+.campo {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--suave);
+}
+
+.campo input,
+.campo select {
+    min-width: 170px;
+    padding: 8px 10px;
+    border: 1px solid var(--borde);
+    border-radius: var(--radio);
+    background: #fff;
+    color: var(--texto);
+    font: inherit;
+    font-weight: 400;
+}
+
+.campo input:focus,
+.campo select:focus {
+    outline: 2px solid var(--azul-claro);
+    border-color: var(--azul);
+}
+
+.campo input:disabled,
+.campo select:disabled {
+    background: var(--fondo);
+    color: var(--suave);
+}
+
+.campo.ancho select {
+    min-width: 320px;
+}
+
+.campo small {
+    font-weight: 400;
+}
+
+.filtros,
+.fila-busqueda {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.acciones {
+    display: flex;
+    gap: 8px;
+}
+
+.total {
+    margin: 2px 0;
+    font-size: 16px;
+}
+
+/* ---------- Botones ---------- */
+
+.boton {
+    padding: 8px 16px;
+    border: 1px solid var(--azul);
+    border-radius: var(--radio);
+    background: var(--azul);
+    color: #fff;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.boton:hover {
+    background: #245d93;
+}
+
+.boton:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.boton.secundario {
+    background: #fff;
+    color: var(--azul);
+}
+
+.boton.secundario:hover {
+    background: var(--azul-claro);
+}
+
+.boton.peligro {
+    border-color: var(--rojo);
+    background: var(--rojo);
+}
+
+.boton.peligro:hover {
+    background: #8f1c13;
+}
+
+.boton.chico {
+    padding: 4px 10px;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+/* ---------- Tablas ---------- */
+
+.contenedor-tabla {
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+th {
+    padding: 9px 10px;
+    background: var(--azul-claro);
+    color: var(--azul-oscuro);
+    text-align: left;
+    white-space: nowrap;
+}
+
+td {
+    padding: 8px 10px;
+    border-top: 1px solid var(--borde);
+    vertical-align: middle;
+}
+
+tbody tr:nth-child(even) {
+    background: #fafbfd;
+}
+
+tbody tr:hover {
+    background: #f0f5fc;
+}
+
+tbody tr.seleccionada {
+    background: #fff7e0;
+}
+
+tfoot td {
+    font-weight: 700;
+    border-top: 2px solid var(--borde);
+}
+
+td.numero,
+th.numero {
+    text-align: right;
+    white-space: nowrap;
+}
+
+td.botones {
+    white-space: nowrap;
+    text-align: right;
+}
+
+td.botones .boton + .boton {
+    margin-left: 6px;
+}
+
+.vacio {
+    padding: 14px;
+    color: var(--suave);
+    text-align: center;
+}
+
+/* ---------- Mensajes y etiquetas ---------- */
+
+.alerta {
+    margin: 10px 0;
+    padding: 10px 14px;
+    border-left: 4px solid;
+    border-radius: var(--radio);
+}
+
+.alerta.exito {
+    border-color: var(--verde);
+    background: var(--verde-claro);
+    color: #14532d;
+}
+
+.alerta.error {
+    border-color: var(--rojo);
+    background: var(--rojo-claro);
+    color: #7a1a12;
+}
+
+.alerta strong {
+    display: block;
+    margin-bottom: 2px;
+}
+
+.etiqueta {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.etiqueta.vendida {
+    background: var(--verde-claro);
+    color: var(--verde);
+}
+
+.etiqueta.cancelada {
+    background: #eceff3;
+    color: var(--suave);
+}
+
+.etiqueta.agotada {
+    background: var(--rojo-claro);
+    color: var(--rojo);
+}
+
+.barra {
+    position: relative;
+    width: 110px;
+    height: 8px;
+    margin-top: 4px;
+    border-radius: 4px;
+    background: #e3e8ef;
+}
+
+.barra span {
+    position: absolute;
+    inset: 0 auto 0 0;
+    border-radius: 4px;
+    background: var(--azul);
+}
+
+.barra.llena span {
+    background: var(--rojo);
+}
+
+.detalle {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 10px 18px;
+    margin: 12px 0;
+}
+
+.detalle div span {
+    display: block;
+    font-size: 12px;
+    color: var(--suave);
+}
+
+/* ---------- Distribución en columnas ---------- */
+
+.columnas-compra {
+    display: grid;
+    grid-template-columns: 3fr 2fr;
+    gap: 24px;
+    margin-top: 10px;
+}
+
+.columnas-admin {
+    display: grid;
+    grid-template-columns: minmax(260px, 1fr) 2.4fr;
+    gap: 18px;
+    align-items: start;
+}
+
+.columnas-admin > .tarjeta {
+    margin-bottom: 0;
+}
+
+#admin-precios .columnas-admin,
+#admin-crud {
+    margin-bottom: 18px;
+}
+
+@media (max-width: 900px) {
+    .columnas-compra,
+    .columnas-admin {
+        grid-template-columns: 1fr;
+    }
+
+    .campo.ancho select {
+        min-width: 0;
+        width: 100%;
+    }
+}
