@@ -1,8 +1,8 @@
 import { api } from './api.js';
 import { fecha } from './util.js';
 
-// Listas que usan los selectores de varias pantallas. Se cargan al abrir la página
-// y se vuelven a pedir después de cada cambio en Administración.
+// Listas que usan los selectores de Administración. Se cargan al iniciar sesión
+// como administrador y se vuelven a pedir después de cada cambio.
 export const datos = { escenarios: [], tipos: [], eventos: [], clientes: [], localidades: [] };
 
 const avisos = [];
@@ -39,5 +39,3 @@ export const opcionesEscenarios = () => datos.escenarios.map(e => [e.idEscenario
 export const opcionesTipos = () => datos.tipos.map(t => [t.idTipoEvento, t.nombre]);
 
 export const opcionesEventos = () => datos.eventos.map(e => [e.idEvento, `${e.nombre} · ${fecha(e.fecha)}`]);
-
-export const opcionesClientes = () => datos.clientes.map(c => [c.idCliente, `${c.nombreCompleto} (${c.documento})`]);

@@ -5,11 +5,13 @@ import com.bogotickets.exception.RecursoNoEncontradoException;
 import com.bogotickets.model.PrecioLocalidad;
 import com.bogotickets.repository.PrecioRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
 
 @Service
+@Transactional
 public class PrecioService {
 
     private final PrecioRepository precios;

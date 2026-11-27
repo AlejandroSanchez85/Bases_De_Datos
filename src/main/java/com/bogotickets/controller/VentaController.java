@@ -3,6 +3,7 @@ package com.bogotickets.controller;
 import com.bogotickets.dto.BoletaDetalle;
 import com.bogotickets.dto.CompraDetalle;
 import com.bogotickets.dto.CompraRequest;
+import com.bogotickets.dto.CompraResumen;
 import com.bogotickets.dto.Disponibilidad;
 import com.bogotickets.dto.EventoCatalogo;
 import com.bogotickets.service.VentaService;
@@ -15,11 +16,13 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-// Módulo del cliente: catálogo, disponibilidad, compras y boletas
+// Venta de boletas. La cartelera y la compra son del cliente; la lista de ventas,
+// la anulación y las consultas de boletas son del administrador (ver SeguridadConfig).
 @RestController
 @RequestMapping("/api")
 public class VentaController {
@@ -43,6 +46,13 @@ public class VentaController {
     @PostMapping("/compras")
     public ResponseEntity<CompraDetalle> comprar(@Valid @RequestBody CompraRequest datos) {
         return ResponseEntity.status(HttpStatus.CREATED).body(servicio.comprar(datos));
+    }
+
+    // Últimas 200 compras; filtros opcionales: /api/compras?idEvento=11&idCliente=5
+    @GetMapping("/compras")
+    public List<CompraResumen> listarCompras(@RequestParam(name = "idEvento", required = false) Integer idEvento,
+                                             @RequestParam(name = "idCliente", required = false) Integer idCliente) {
+        return servicio.listarCompras(idEvento, idCliente);
     }
 
     @GetMapping("/compras/{id}")

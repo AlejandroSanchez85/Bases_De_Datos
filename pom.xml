@@ -36,6 +36,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
+        <!-- Inicio de sesión, permisos por rol, contraseñas con BCrypt y protección CSRF -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
         <!-- Driver de PostgreSQL. Sin scope runtime porque el manejador de
              errores lee el SQLSTATE con PSQLException -->
         <dependency>

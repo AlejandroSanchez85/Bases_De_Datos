@@ -4,10 +4,12 @@ import com.bogotickets.exception.RecursoNoEncontradoException;
 import com.bogotickets.model.Localidad;
 import com.bogotickets.repository.LocalidadRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 @Service
+@Transactional
 public class LocalidadService {
 
     private final LocalidadRepository repositorio;

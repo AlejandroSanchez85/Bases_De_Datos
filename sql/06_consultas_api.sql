@@ -4,39 +4,44 @@
 -- (src/main/java/com/bogotickets/repository). Sirven para revisarlas en
 -- pgAdmin: cada una se puede seleccionar y ejecutar sola.
 -- Los ? de la API aparecen aquí con un valor de ejemplo.
+--
+-- La API se conecta como usuario_app y ejecuta cada petición dentro de una
+-- transacción con el rol de quien inició sesión (SET LOCAL ROLE). El bloque
+-- del final muestra cómo se ve eso en SQL.
 -- =====================================================================
 
 
 -- ---------------------------------------------------------------------
 -- SUBCONSULTA 1 (escalar en WHERE)
--- GET /api/reportes/precios-sobre-promedio
+-- GET /api/reportes/precios-sobre-promedio            (rol_analista)
 -- Tarifas más caras que el promedio de todas las tarifas. La subconsulta
 -- calcula el promedio una sola vez y cada fila se compara contra él.
+-- Usa v_ocupacion_localidad (una fila por tarifa) porque el analista solo
+-- puede leer vistas.
 -- ---------------------------------------------------------------------
-SELECT e.id_evento, e.nombre AS evento, l.nombre AS localidad, pl.precio,
-       (SELECT ROUND(AVG(precio), 2) FROM precio_localidad) AS promedio
-FROM   precio_localidad pl
-JOIN   evento    e ON e.id_evento    = pl.id_evento
-JOIN   localidad l ON l.id_localidad = pl.id_localidad
-WHERE  pl.precio > (SELECT AVG(precio) FROM precio_localidad)
-ORDER  BY pl.precio DESC, e.nombre;
+SELECT id_evento, evento, localidad, precio_vigente AS precio,
+       (SELECT ROUND(AVG(precio_vigente), 2) FROM v_ocupacion_localidad) AS promedio
+FROM   v_ocupacion_localidad
+WHERE  precio_vigente > (SELECT AVG(precio_vigente) FROM v_ocupacion_localidad)
+ORDER  BY precio_vigente DESC, evento;
 
 
 -- ---------------------------------------------------------------------
 -- SUBCONSULTA 2 (NOT EXISTS)
--- GET /api/reportes/clientes-sin-compras
+-- GET /api/reportes/clientes-sin-compras              (rol_analista)
 -- Clientes registrados que nunca han comprado (P7). Para cada cliente,
--- NOT EXISTS busca si hay alguna compra suya; si no hay, aparece.
+-- NOT EXISTS busca si tiene alguna boleta; toda compra tiene al menos una,
+-- así que los que quedan nunca han comprado.
 -- ---------------------------------------------------------------------
 SELECT c.id_cliente, c.nombre_completo, c.fecha_registro
-FROM   cliente c
-WHERE  NOT EXISTS (SELECT 1 FROM compra co WHERE co.id_cliente = c.id_cliente)
+FROM   v_clientes_publico c
+WHERE  NOT EXISTS (SELECT 1 FROM v_boletas_detalle b WHERE b.id_cliente = c.id_cliente)
 ORDER  BY c.id_cliente;
 
 
 -- ---------------------------------------------------------------------
 -- SUBCONSULTA 3 (en FROM, sobre la vista de reporte)
--- GET /api/reportes/eventos-baja-ocupacion?umbral=50
+-- GET /api/reportes/eventos-baja-ocupacion?umbral=50  (rol_analista)
 -- Eventos con ocupación general menor al umbral (RF-11). La subconsulta
 -- suma por evento los cupos y las ventas de todas sus localidades; la
 -- consulta externa filtra por el porcentaje calculado.
@@ -54,41 +59,56 @@ ORDER  BY t.porcentaje_ocupacion, t.fecha_evento;
 
 
 -- ---------------------------------------------------------------------
--- SUBCONSULTA 4 (escalar en SELECT)
--- GET /api/compras/{id} y POST /api/compras (datos de la compra)
--- Para cada compra, la subconsulta suma lo pagado por sus boletas.
+-- SUBCONSULTA 4 (escalar en SELECT) y totales del tablero
+-- GET /api/reportes/resumen                           (rol_analista)
+-- Una sola fila con el recaudo, las boletas vendidas y anuladas, y el
+-- número de eventos a la venta, que sale de la subconsulta del SELECT.
 -- ---------------------------------------------------------------------
-SELECT co.id_compra, co.id_cliente, c.nombre_completo, co.fecha_compra, co.metodo_pago,
-       (SELECT COALESCE(SUM(b.precio_pagado), 0)
-        FROM   boleta b
-        WHERE  b.id_compra = co.id_compra) AS total
-FROM   compra co
-JOIN   cliente c ON c.id_cliente = co.id_cliente
-WHERE  co.id_compra = 62;
+SELECT COALESCE(SUM(precio_pagado) FILTER (WHERE estado = 'Vendida'), 0) AS recaudo,
+       COUNT(*) FILTER (WHERE estado = 'Vendida')                       AS vendidas,
+       COUNT(*) FILTER (WHERE estado = 'Cancelada')                     AS canceladas,
+       COUNT(DISTINCT id_compra)                                        AS compras,
+       COUNT(DISTINCT id_cliente)                                       AS clientes,
+       (SELECT COUNT(*) FROM v_catalogo_eventos)                        AS a_la_venta
+FROM   v_boletas_detalle;
+
+-- Ventas agrupadas del mismo tablero: por tipo de evento (también se agrupa
+-- por escenario y por mes cambiando la primera columna)
+SELECT tipo_evento AS nombre, COUNT(*) AS boletas, SUM(precio_pagado) AS recaudo
+FROM   v_boletas_detalle
+WHERE  estado = 'Vendida'
+GROUP  BY 1
+ORDER  BY recaudo DESC;
+
+SELECT to_char(fecha_compra, 'YYYY-MM') AS nombre, COUNT(*) AS boletas, SUM(precio_pagado) AS recaudo
+FROM   v_boletas_detalle
+WHERE  estado = 'Vendida'
+GROUP  BY 1
+ORDER  BY 1;
 
 
 -- ---------------------------------------------------------------------
 -- VISTA v_ocupacion_localidad
--- GET /api/eventos/{id}/disponibilidad  (cupos en tiempo real, RF-07).
+-- GET /api/eventos/{id}/disponibilidad  (cupos en tiempo real, RF-07)
 -- El cliente no ve el recaudo, por eso solo se piden estas columnas.
 -- ---------------------------------------------------------------------
 SELECT id_localidad, localidad, precio_vigente, aforo_maximo,
        boletas_vendidas, boletas_disponibles
 FROM   v_ocupacion_localidad
-WHERE  id_evento = 11
+WHERE  id_evento = 15
 ORDER  BY precio_vigente DESC;
 
--- GET /api/reportes/ocupacion?idEvento=11  (ocupación y recaudo, RF-10)
+-- GET /api/reportes/ocupacion?idEvento=15  (ocupación y recaudo, RF-10)
 -- Sin idEvento se quita el WHERE y se ordena por fecha_evento, evento.
 SELECT *
 FROM   v_ocupacion_localidad
-WHERE  id_evento = 11
+WHERE  id_evento = 15
 ORDER  BY precio_vigente DESC;
 
 
 -- ---------------------------------------------------------------------
 -- VISTA v_catalogo_eventos
--- GET /api/catalogo  (eventos a la venta en orden de fecha, RF-06)
+-- GET /api/catalogo  (cartelera del cliente en orden de fecha, RF-06)
 -- ---------------------------------------------------------------------
 SELECT *
 FROM   v_catalogo_eventos
@@ -96,10 +116,31 @@ ORDER  BY fecha, hora_inicio;
 
 
 -- ---------------------------------------------------------------------
--- VISTA v_boletas_detalle
--- GET /api/clientes/{id}/boletas  (historial de compras, RF-09)
--- GET /api/boletas/{id}           (datos completos de una boleta, P11)
+-- VISTA v_compras_resumen
+-- GET /api/cuenta/compras        (Mis compras del cliente que inició sesión)
+-- GET /api/compras?idEvento=15   (ventas del administrador, últimas 200)
+-- GET /api/compras/{id}          (encabezado de una compra)
 -- ---------------------------------------------------------------------
+SELECT *
+FROM   v_compras_resumen
+WHERE  id_cliente = 1
+ORDER  BY fecha_compra DESC;
+
+SELECT *
+FROM   v_compras_resumen
+WHERE  id_evento = 15
+ORDER  BY fecha_compra DESC
+LIMIT  200;
+
+
+-- ---------------------------------------------------------------------
+-- VISTA v_boletas_detalle
+-- GET /api/compras/{id} y /api/cuenta/compras/{id} (boletas de una compra)
+-- GET /api/clientes/{id}/boletas                    (historial, RF-09)
+-- GET /api/boletas/{id}                             (una boleta, P11)
+-- ---------------------------------------------------------------------
+SELECT * FROM v_boletas_detalle WHERE id_compra = 1 ORDER BY id_boleta;
+
 SELECT *
 FROM   v_boletas_detalle
 WHERE  id_cliente = 3
@@ -118,8 +159,18 @@ ORDER  BY boletas_vigentes DESC, id_cliente;
 
 
 -- ---------------------------------------------------------------------
+-- VISTA v_cuentas
+-- POST /api/auth/login  (lo único que lee usuario_app sin cambiar de rol)
+-- La API compara la contraseña escrita con este hash usando BCrypt.
+-- ---------------------------------------------------------------------
+SELECT correo, contrasena, rol, id_cliente, nombre_completo
+FROM   v_cuentas
+WHERE  correo = 'admin@bogotickets.co';
+
+
+-- ---------------------------------------------------------------------
 -- FUNCIÓN Y PROCEDIMIENTO
--- POST  /api/compras             -> SELECT fn_registrar_compra(cliente, evento, localidad, cantidad, método)
+-- POST  /api/compras             -> SELECT fn_registrar_compra(cliente de la sesión, evento, localidad, cantidad, método)
 -- PATCH /api/compras/{id}/anular -> CALL sp_anular_compra(id)
 -- (ver ejemplos ejecutables en 07_pruebas_reglas.sql)
 -- ---------------------------------------------------------------------
@@ -136,3 +187,16 @@ FROM   historial_precios h
 JOIN   localidad l ON l.id_localidad = h.id_localidad
 LEFT   JOIN evento e ON e.id_evento = h.id_evento
 ORDER  BY h.fecha_cambio DESC;
+
+
+-- ---------------------------------------------------------------------
+-- Así ejecuta la API una petición del analista (TransaccionConRol.java):
+-- abre la transacción, toma el rol del actor y deja el correo de quien hizo
+-- la petición para la auditoría. Al terminar, el rol vuelve a usuario_app.
+-- ---------------------------------------------------------------------
+BEGIN;
+SET LOCAL ROLE rol_analista;
+SELECT set_config('bogotickets.usuario', 'analista@bogotickets.co', true);
+SELECT current_user AS rol_activo, COUNT(*) AS tarifas FROM v_ocupacion_localidad;
+-- SELECT * FROM cliente;   -- con este rol daría: permission denied for table cliente
+COMMIT;

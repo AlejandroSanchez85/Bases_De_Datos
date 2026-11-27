@@ -4,10 +4,12 @@ import com.bogotickets.exception.RecursoNoEncontradoException;
 import com.bogotickets.model.Evento;
 import com.bogotickets.repository.EventoRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 @Service
+@Transactional
 public class EventoService {
 
     private final EventoRepository repositorio;

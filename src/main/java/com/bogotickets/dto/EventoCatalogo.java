@@ -8,12 +8,16 @@ import java.time.LocalTime;
 public record EventoCatalogo(
         Integer idEvento,
         String evento,
+        Integer idTipoEvento,
         String tipoEvento,
+        Integer idEscenario,
         String escenario,
         String direccion,
         LocalDate fecha,
         LocalTime horaInicio,
         LocalTime horaFin,
         BigDecimal precioDesde,
+        BigDecimal precioHasta,
+        Integer aforoTotal,
         Integer boletasDisponibles) {
 }

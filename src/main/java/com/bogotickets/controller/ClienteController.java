@@ -1,5 +1,6 @@
 package com.bogotickets.controller;
 
+import com.bogotickets.dto.RegistroRequest;
 import com.bogotickets.model.Cliente;
 import com.bogotickets.service.ClienteService;
 import jakarta.validation.Valid;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+// Gestión de clientes del administrador. El cliente maneja su propia cuenta en /api/cuenta.
 @RestController
 @RequestMapping("/api/clientes")
 public class ClienteController {
@@ -36,9 +38,10 @@ public class ClienteController {
         return servicio.buscar(id);
     }
 
+    // El administrador registra un cliente con una contraseña inicial
     @PostMapping
-    public ResponseEntity<Cliente> crear(@Valid @RequestBody Cliente cliente) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(servicio.crear(cliente));
+    public ResponseEntity<Cliente> crear(@Valid @RequestBody RegistroRequest datos) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(servicio.crear(datos));
     }
 
     @PutMapping("/{id}")

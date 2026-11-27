@@ -2,9 +2,21 @@
 // Si la API responde con error, se lanza un Error con el mensaje que ella envió
 // ({"estado": 409, "mensaje": "..."}) para mostrárselo al usuario tal cual.
 
-async function pedir(metodo, ruta, cuerpo) {
+// Spring Security deja un token en la cookie XSRF-TOKEN; toda petición que cambia
+// datos debe devolverlo en la cabecera X-XSRF-TOKEN (protección CSRF)
+function tokenCsrf() {
+    const cookie = document.cookie.split('; ').find(c => c.startsWith('XSRF-TOKEN='));
+    return cookie ? decodeURIComponent(cookie.substring('XSRF-TOKEN='.length)) : '';
+}
+
+async function pedir(metodo, ruta, cuerpo, comoFormulario = false) {
     const opciones = { method: metodo, headers: {} };
-    if (cuerpo !== undefined) {
+    if (metodo !== 'GET') {
+        opciones.headers['X-XSRF-TOKEN'] = tokenCsrf();
+    }
+    if (comoFormulario) {
+        opciones.body = new URLSearchParams(cuerpo);
+    } else if (cuerpo !== undefined) {
         opciones.headers['Content-Type'] = 'application/json';
         opciones.body = JSON.stringify(cuerpo);
     }
@@ -16,6 +28,10 @@ async function pedir(metodo, ruta, cuerpo) {
         throw new Error('No hay conexión con la API. Revise que la aplicación esté corriendo.');
     }
 
+    // La sesión venció (o se cerró en otra pestaña): la página vuelve al inicio de sesión
+    if (respuesta.status === 401 && !ruta.startsWith('/api/auth/')) {
+        window.dispatchEvent(new CustomEvent('sesion-vencida'));
+    }
     if (respuesta.status === 204) {
         return null;
     }
@@ -32,4 +48,8 @@ export const api = {
     put: (ruta, cuerpo) => pedir('PUT', ruta, cuerpo),
     patch: ruta => pedir('PATCH', ruta),
     eliminar: ruta => pedir('DELETE', ruta),
+    // Spring Security recibe el inicio de sesión como formulario, no como JSON
+    entrar: (correo, contrasena) => pedir('POST', '/api/auth/login', { correo, contrasena }, true),
+    salir: () => pedir('POST', '/api/auth/logout'),
+    sesion: () => pedir('GET', '/api/auth/sesion'),
 };
