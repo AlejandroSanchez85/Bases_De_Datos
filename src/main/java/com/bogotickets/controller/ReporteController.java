@@ -6,6 +6,7 @@ import com.bogotickets.dto.EventoBajaOcupacion;
 import com.bogotickets.dto.HistorialPrecio;
 import com.bogotickets.dto.OcupacionLocalidad;
 import com.bogotickets.dto.PrecioSobrePromedio;
+import com.bogotickets.dto.ResumenVentas;
 import com.bogotickets.service.ReporteService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -15,7 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.math.BigDecimal;
 import java.util.List;
 
-// Reportes del analista de ventas (solo lectura) e historial de precios
+// Reportes del analista de ventas (solo lectura) e historial de precios del administrador
 @RestController
 @RequestMapping("/api")
 public class ReporteController {
@@ -24,6 +25,11 @@ public class ReporteController {
 
     public ReporteController(ReporteService servicio) {
         this.servicio = servicio;
+    }
+
+    @GetMapping("/reportes/resumen")
+    public ResumenVentas resumen() {
+        return servicio.resumen();
     }
 
     @GetMapping("/reportes/ocupacion")

@@ -6,14 +6,17 @@ import com.bogotickets.dto.EventoBajaOcupacion;
 import com.bogotickets.dto.HistorialPrecio;
 import com.bogotickets.dto.OcupacionLocalidad;
 import com.bogotickets.dto.PrecioSobrePromedio;
+import com.bogotickets.dto.ResumenVentas;
 import com.bogotickets.repository.ReporteRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
 
-// Funcionalidad F5 (reportes del analista) e historial de precios
+// Funcionalidad F5 (reportes del analista) e historial de precios (administrador)
 @Service
+@Transactional
 public class ReporteService {
 
     private final ReporteRepository reportes;
@@ -24,11 +27,13 @@ public class ReporteService {
         this.eventos = eventos;
     }
 
-    // Sin idEvento devuelve todos los eventos
+    public ResumenVentas resumen() {
+        return reportes.resumen();
+    }
+
+    // Sin idEvento devuelve todos los eventos. No se consulta la tabla evento porque
+    // el analista solo lee vistas: un evento sin tarifas o inexistente da una lista vacía.
     public List<OcupacionLocalidad> ocupacion(Integer idEvento) {
-        if (idEvento != null) {
-            eventos.buscar(idEvento);
-        }
         return reportes.ocupacion(idEvento);
     }
 
