@@ -5,6 +5,7 @@ import com.bogotickets.dto.ClienteSinCompras;
 import com.bogotickets.dto.EventoBajaOcupacion;
 import com.bogotickets.dto.HistorialPrecio;
 import com.bogotickets.dto.OcupacionLocalidad;
+import com.bogotickets.dto.PerfilCompradores;
 import com.bogotickets.dto.PrecioSobrePromedio;
 import com.bogotickets.dto.ResumenVentas;
 import com.bogotickets.repository.ReporteRepository;
@@ -51,6 +52,10 @@ public class ReporteService {
 
     public List<ClientePublico> clientes() {
         return reportes.clientes();
+    }
+
+    public PerfilCompradores perfilCompradores() {
+        return reportes.perfilCompradores();
     }
 
     public List<HistorialPrecio> historialPrecios(Integer idEvento) {

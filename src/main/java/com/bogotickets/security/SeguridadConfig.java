@@ -40,6 +40,8 @@ public class SeguridadConfig {
     public SecurityFilterChain filtroSeguridad(HttpSecurity http, JsonMapper json) throws Exception {
         http.authorizeHttpRequests(rutas -> rutas
                         .requestMatchers("/api/auth/**").permitAll()
+                        // Países, departamentos y ciudades: los usa el registro, antes de iniciar sesión
+                        .requestMatchers(HttpMethod.GET, "/api/ubicaciones").permitAll()
                         // Cliente: su cuenta, la cartelera y la compra
                         .requestMatchers("/api/cuenta/**").hasRole("CLIENTE")
                         .requestMatchers(HttpMethod.GET, "/api/catalogo").hasRole("CLIENTE")

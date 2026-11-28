@@ -5,6 +5,7 @@ import com.bogotickets.dto.ClienteSinCompras;
 import com.bogotickets.dto.EventoBajaOcupacion;
 import com.bogotickets.dto.HistorialPrecio;
 import com.bogotickets.dto.OcupacionLocalidad;
+import com.bogotickets.dto.PerfilCompradores;
 import com.bogotickets.dto.PrecioSobrePromedio;
 import com.bogotickets.dto.ResumenVentas;
 import com.bogotickets.dto.VentaAgrupada;
@@ -116,13 +117,15 @@ public class ReporteRepository {
     // tiene al menos una boleta, así que son los clientes que nunca han comprado.
     public List<ClienteSinCompras> clientesSinCompras() {
         return jdbc.query("""
-                SELECT c.id_cliente, c.nombre_completo, c.fecha_registro
+                SELECT c.id_cliente, c.nombres, c.apellidos, c.ciudad, c.fecha_registro
                 FROM   v_clientes_publico c
                 WHERE  NOT EXISTS (SELECT 1 FROM v_boletas_detalle b WHERE b.id_cliente = c.id_cliente)
                 ORDER  BY c.id_cliente""",
                 (rs, fila) -> new ClienteSinCompras(
                         rs.getInt("id_cliente"),
-                        rs.getString("nombre_completo"),
+                        rs.getString("nombres"),
+                        rs.getString("apellidos"),
+                        rs.getString("ciudad"),
                         rs.getObject("fecha_registro", LocalDate.class)));
     }
 
@@ -134,8 +137,13 @@ public class ReporteRepository {
                 ORDER  BY boletas_vigentes DESC, id_cliente""",
                 (rs, fila) -> new ClientePublico(
                         rs.getInt("id_cliente"),
-                        rs.getString("nombre_completo"),
+                        rs.getString("nombres"),
+                        rs.getString("apellidos"),
                         rs.getString("correo_oculto"),
+                        rs.getString("genero"),
+                        rs.getInt("edad"),
+                        rs.getString("ciudad"),
+                        rs.getString("departamento"),
                         rs.getObject("fecha_registro", LocalDate.class),
                         rs.getInt("compras"),
                         rs.getInt("boletas_vigentes")));
@@ -170,6 +178,37 @@ public class ReporteRepository {
                 SELECT %s AS nombre, COUNT(*) AS boletas, SUM(precio_pagado) AS recaudo
                 FROM   v_boletas_detalle
                 WHERE  estado = 'Vendida'
+                GROUP  BY 1
+                ORDER  BY %s
+                LIMIT  ?""".formatted(grupo, orden),
+                (rs, fila) -> new VentaAgrupada(rs.getString("nombre"), rs.getInt("boletas"), rs.getBigDecimal("recaudo")),
+                limite);
+    }
+
+    // Quién compra: boletas vendidas por género, rango de edad y departamento de
+    // residencia. v_clientes_publico da la edad y la ciudad sin mostrarle al analista
+    // la fecha de nacimiento ni la dirección.
+    public PerfilCompradores perfilCompradores() {
+        String rangoEdad = """
+                CASE WHEN c.edad < 18 THEN '14 a 17 años'
+                     WHEN c.edad < 25 THEN '18 a 24 años'
+                     WHEN c.edad < 35 THEN '25 a 34 años'
+                     WHEN c.edad < 45 THEN '35 a 44 años'
+                     WHEN c.edad < 60 THEN '45 a 59 años'
+                     ELSE '60 años o más' END""";
+        return new PerfilCompradores(
+                ventasPorComprador("INITCAP(c.genero)", "boletas DESC", 10),
+                ventasPorComprador(rangoEdad, "MIN(c.edad)", 10),
+                ventasPorComprador("c.departamento", "recaudo DESC", 10));
+    }
+
+    // grupo y orden son textos fijos de perfilCompradores(), nunca datos de la petición
+    private List<VentaAgrupada> ventasPorComprador(String grupo, String orden, int limite) {
+        return jdbc.query("""
+                SELECT %s AS nombre, COUNT(*) AS boletas, SUM(b.precio_pagado) AS recaudo
+                FROM   v_boletas_detalle b
+                JOIN   v_clientes_publico c ON c.id_cliente = b.id_cliente
+                WHERE  b.estado = 'Vendida'
                 GROUP  BY 1
                 ORDER  BY %s
                 LIMIT  ?""".formatted(grupo, orden),

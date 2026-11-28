@@ -5,6 +5,7 @@ import com.bogotickets.dto.ClienteSinCompras;
 import com.bogotickets.dto.EventoBajaOcupacion;
 import com.bogotickets.dto.HistorialPrecio;
 import com.bogotickets.dto.OcupacionLocalidad;
+import com.bogotickets.dto.PerfilCompradores;
 import com.bogotickets.dto.PrecioSobrePromedio;
 import com.bogotickets.dto.ResumenVentas;
 import com.bogotickets.service.ReporteService;
@@ -56,6 +57,11 @@ public class ReporteController {
     @GetMapping("/reportes/clientes")
     public List<ClientePublico> clientes() {
         return servicio.clientes();
+    }
+
+    @GetMapping("/reportes/perfil-compradores")
+    public PerfilCompradores perfilCompradores() {
+        return servicio.perfilCompradores();
     }
 
     @GetMapping("/historial-precios")
