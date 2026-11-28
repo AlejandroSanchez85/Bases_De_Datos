@@ -14,14 +14,23 @@ import java.util.Optional;
 public class ClienteRepository {
 
     // La columna contrasena no está aquí: ningún rol tiene permiso de leerla
-    private static final String COLUMNAS = "id_cliente, documento, nombre_completo, correo, telefono, fecha_registro";
+    private static final String COLUMNAS = """
+            id_cliente, tipo_documento, numero_documento, nombres, apellidos, fecha_nacimiento, genero,
+            correo, indicativo, celular, id_ciudad, direccion, fecha_registro""";
 
     private static final RowMapper<Cliente> MAPEO = (rs, fila) -> new Cliente(
             rs.getInt("id_cliente"),
-            rs.getString("documento"),
-            rs.getString("nombre_completo"),
+            rs.getString("tipo_documento"),
+            rs.getString("numero_documento"),
+            rs.getString("nombres"),
+            rs.getString("apellidos"),
+            rs.getObject("fecha_nacimiento", LocalDate.class),
+            rs.getString("genero"),
             rs.getString("correo"),
-            rs.getString("telefono"),
+            rs.getString("indicativo"),
+            rs.getString("celular"),
+            rs.getInt("id_ciudad"),
+            rs.getString("direccion"),
             rs.getObject("fecha_registro", LocalDate.class));
 
     private final JdbcTemplate jdbc;
@@ -42,20 +51,24 @@ public class ClienteRepository {
     // Recibe la contraseña ya convertida en hash BCrypt
     public Cliente crear(RegistroRequest c, String hashContrasena) {
         return jdbc.queryForObject("""
-                INSERT INTO cliente (documento, nombre_completo, correo, telefono, contrasena)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO cliente (tipo_documento, numero_documento, nombres, apellidos, fecha_nacimiento,
+                                     genero, correo, indicativo, celular, id_ciudad, direccion, contrasena)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 RETURNING %s""".formatted(COLUMNAS),
-                MAPEO, c.documento(), c.nombreCompleto(), c.correo(), c.telefono(), hashContrasena);
+                MAPEO, c.tipoDocumento(), c.numeroDocumento(), c.nombres(), c.apellidos(), c.fechaNacimiento(),
+                c.genero(), c.correo(), c.indicativo(), c.celular(), c.idCiudad(), c.direccion(), hashContrasena);
     }
 
-    // El documento no se cambia: identifica a la persona
+    // El documento y la fecha de nacimiento no se cambian (no tienen permiso de UPDATE)
     public Optional<Cliente> actualizar(int id, Cliente c) {
         return jdbc.query("""
                 UPDATE cliente
-                SET    nombre_completo = ?, correo = ?, telefono = ?
+                SET    nombres = ?, apellidos = ?, genero = ?, correo = ?, indicativo = ?, celular = ?,
+                       id_ciudad = ?, direccion = ?
                 WHERE  id_cliente = ?
                 RETURNING %s""".formatted(COLUMNAS),
-                MAPEO, c.nombreCompleto(), c.correo(), c.telefono(), id)
+                MAPEO, c.nombres(), c.apellidos(), c.genero(), c.correo(), c.indicativo(), c.celular(),
+                c.idCiudad(), c.direccion(), id)
                 .stream().findFirst();
     }
 

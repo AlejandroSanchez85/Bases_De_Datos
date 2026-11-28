@@ -31,6 +31,7 @@ public class VentaRepository {
             rs.getObject("fecha", LocalDate.class),
             rs.getObject("hora_inicio", LocalTime.class),
             rs.getObject("hora_fin", LocalTime.class),
+            rs.getInt("edad_minima"),
             rs.getBigDecimal("precio_desde"),
             rs.getBigDecimal("precio_hasta"),
             rs.getInt("aforo_total"),

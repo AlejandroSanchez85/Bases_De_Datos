@@ -16,6 +16,7 @@ public record EventoCatalogo(
         LocalDate fecha,
         LocalTime horaInicio,
         LocalTime horaFin,
+        Integer edadMinima,
         BigDecimal precioDesde,
         BigDecimal precioHasta,
         Integer aforoTotal,
