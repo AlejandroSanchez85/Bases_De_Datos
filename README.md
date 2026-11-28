@@ -39,10 +39,10 @@ cd Bases_De_Datos
 
 | Orden | Script | Qué crea | Resultado esperado al final |
 |---|---|---|---|
-| 1 | `01_tablas.sql` | 10 tablas, restricciones e índices | 10 tablas con su número de restricciones |
+| 1 | `01_tablas.sql` | 13 tablas, restricciones e índices | 13 tablas con su número de restricciones |
 | 2 | `02_funciones_triggers.sql` | triggers de reglas de negocio, función de compra y procedimiento de anulación | 11 triggers |
-| 3 | `03_vistas.sql` | 7 vistas | 7 vistas |
-| 4 | `04_datos.sql` | datos de prueba | 18 escenarios, 53 localidades, 10 tipos, 60 eventos, 177 tarifas, 220 clientes, 3 empleados, 4223 compras, 10059 boletas, 11 cambios en el historial |
+| 3 | `03_vistas.sql` | 8 vistas | 8 vistas |
+| 4 | `04_datos.sql` | datos de prueba | 13 países, 65 departamentos, 126 ciudades, 18 escenarios, 53 localidades, 10 tipos, 60 eventos, 177 tarifas, 221 clientes, 3 empleados, 4187 compras, 10050 boletas, 11 cambios en el historial |
 | 5 | `05_usuarios_permisos.sql` | roles, usuarios y permisos | 3 usuarios y 3 roles; `usuario_app` aparece con `hereda = false` |
 
 Los otros dos scripts no hacen falta para instalar: `06_consultas_api.sql` reúne las consultas con vistas y subconsultas que ejecuta la API, y `07_pruebas_reglas.sql` trae pruebas que violan cada regla y cada permiso a propósito. En ambos se selecciona una consulta o prueba y se ejecuta sola.
@@ -88,10 +88,33 @@ La página abre en la pantalla de inicio de sesión. Al hacer clic en una de las
 | Rol | Correo | Contraseña | Qué ve |
 |---|---|---|---|
 | Cliente | `laura.rodriguez92@gmail.com` | `Cliente2026*` | Cartelera, compra de boletas, Mis compras y Mi cuenta |
+| Cliente de 16 años | `sara.medina@gmail.com` | `Cliente2026*` | Lo mismo; sirve para probar la edad mínima de los eventos |
 | Administrador | `admin@bogotickets.co` | `Admin2026*` | Eventos, escenarios, localidades, tipos de evento, precios, clientes, ventas y anulaciones, historial de precios |
 | Analista de ventas | `analista@bogotickets.co` | `Analista2026*` | Resumen de ventas y los cinco reportes |
 
 Todos los clientes de prueba usan la contraseña `Cliente2026*`. Un visitante puede crear su propia cuenta de cliente desde la pestaña *Crear cuenta*. Las contraseñas se guardan cifradas con BCrypt: en la base solo queda su hash.
+
+## Datos de las personas y restricciones de edad
+
+Clientes y empleados guardan los mismos datos personales:
+
+| Grupo | Columnas |
+|---|---|
+| Identificación | `tipo_documento` (CC, TI, CE, PA o PPT), `numero_documento`, `nombres`, `apellidos`, `fecha_nacimiento`, `genero` (masculino, femenino u otro) |
+| Contacto | `correo` (también es el usuario), `indicativo` (+57 por defecto) y `celular` |
+| Residencia | `id_ciudad` y `direccion` |
+
+La residencia usa tres tablas: `pais`, `departamento` y `ciudad`. La persona guarda solo su ciudad, y el departamento y el país se obtienen siguiendo las llaves foráneas. Guardar los tres nombres en `cliente` rompería la 3FN, porque el departamento depende de la ciudad y no del cliente. En la página, País, Departamento y Ciudad son tres selectores encadenados y el indicativo cambia con el país.
+
+La fecha de nacimiento se usa en tres reglas:
+
+| Regla | Dónde | Qué hace |
+|---|---|---|
+| RN-25 | trigger `trg_boleta_validar` | Cada evento tiene una `edad_minima` (0 = todo público). La base rechaza la compra si el cliente no tendrá esa edad cumplida **el día del evento** |
+| RN-26 | CHECK `chk_cliente_nacimiento` | Para crear una cuenta se necesitan 14 años cumplidos |
+| RN-27 | CHECK `chk_cliente_cc_mayor_edad` y `chk_cliente_ti_menor_edad` | La cédula de ciudadanía es de mayores de 18 años y la tarjeta de identidad de quien era menor al registrarse |
+
+El documento y la fecha de nacimiento no se pueden cambiar después del registro: no tienen permiso de UPDATE en ningún rol, porque identifican a la persona y respaldan la restricción de edad.
 
 ## Inicio de sesión y permisos por rol
 
@@ -108,20 +131,27 @@ La interfaz usa solo la API (`fetch` a `/api/...`); nunca se conecta a la base. 
 
 | Pantalla | Rol | Qué permite |
 |---|---|---|
-| Inicio de sesión | Todos | Ingresar, crear una cuenta de cliente y usar las cuentas de prueba |
-| Cartelera | Cliente | Eventos a la venta en tarjetas, con filtros por tipo, escenario y fecha, y búsqueda por artista o evento |
+| Inicio de sesión | Todos | Ingresar, crear una cuenta de cliente con sus datos y residencia, y usar las cuentas de prueba |
+| Cartelera | Cliente | Eventos a la venta en tarjetas con su edad mínima, filtros por tipo, escenario y fecha, y búsqueda por artista o evento |
 | Evento y compra | Cliente | Localidades con precio y cupos en tiempo real; elegir localidad, cantidad y método de pago; comprar (caso de uso principal) |
 | Mis compras | Cliente | Compras próximas, realizadas y anuladas, con sus boletas |
-| Mi cuenta | Cliente | Cambiar nombre, correo y teléfono; eliminar la cuenta si nunca ha comprado |
+| Mi cuenta | Cliente | Cambiar nombres, apellidos, género, correo, celular y residencia; eliminar la cuenta si nunca ha comprado |
 | Administración | Administrador | CRUD de eventos, escenarios, localidades, tipos de evento y clientes; precios con cupos vendidos; ventas y anulación de compras; historial de precios |
-| Reportes | Analista | Resumen de ventas, ocupación y recaudo, baja ocupación, tarifas sobre el promedio, clientes sin compras y comportamiento de compra |
+| Reportes | Analista | Resumen de ventas, ocupación y recaudo, baja ocupación, tarifas sobre el promedio, perfil de compradores (género, edad y departamento), clientes sin compras y comportamiento de compra |
+
+### Prueba de la restricción de edad
+
+1. Iniciar sesión con `sara.medina@gmail.com` (16 años) y abrir el «Festival Estéreo Picnic 2027», que es para mayores de 18.
+2. Elegir cualquier localidad y pulsar *Comprar boletas*.
+3. La pantalla muestra el mensaje del trigger: «Festival Estéreo Picnic 2027» exige una edad mínima de 18 años y el comprador tendrá 16 años el día del evento. No se guarda nada.
+4. Con «Karol G en concierto» (mayores de 14) la misma cuenta sí puede comprar.
 
 ### Prueba del caso principal: compra que falla a mitad de camino
 
 1. Iniciar sesión como cliente y abrir «Temporada de ópera: La Traviata» (6 de marzo de 2027).
 2. Elegir el **Palco Presidencial** (le quedan 2 cupos), subir la cantidad a **3** y pulsar *Comprar boletas*.
 3. La pantalla muestra: «Localidad agotada: «Palco Presidencial» de «Temporada de ópera: La Traviata, de Giuseppe Verdi» no tiene más cupos (aforo 8)». El palco sigue con 2 cupos.
-4. En pgAdmin se comprueba que no quedó nada a medias (siguen 4223 compras y 10059 boletas):
+4. En pgAdmin se comprueba que no quedó nada a medias (siguen 4187 compras y 10050 boletas):
    ```sql
    SELECT (SELECT COUNT(*) FROM compra) AS compras, (SELECT COUNT(*) FROM boleta) AS boletas;
    ```
@@ -145,9 +175,10 @@ Base: `http://localhost:8080`. Los datos se envían y reciben en JSON, salvo el 
 | POST | `/api/auth/login` | Inicia sesión con correo y contraseña (formulario). Devuelve nombre y rol. | Público |
 | POST | `/api/auth/logout` | Cierra la sesión. | Todos |
 | GET | `/api/auth/sesion` | Datos de la sesión activa; 401 si no hay. | Público |
-| POST | `/api/auth/registro` | Crea una cuenta de cliente. | Público |
+| POST | `/api/auth/registro` | Crea una cuenta de cliente con sus datos personales y de residencia. | Público |
+| GET | `/api/ubicaciones` | Países, departamentos y ciudades con el indicativo (vista v_ubicaciones). | Público |
 | GET | `/api/cuenta` | Datos del cliente que inició sesión. | Cliente |
-| PUT | `/api/cuenta` | Actualiza su nombre, correo y teléfono. | Cliente |
+| PUT | `/api/cuenta` | Actualiza nombres, apellidos, género, correo, celular y residencia. | Cliente |
 | DELETE | `/api/cuenta` | Elimina su cuenta si no tiene compras. | Cliente |
 | GET | `/api/cuenta/compras` | Sus compras (vista v_compras_resumen, F6). | Cliente |
 | GET | `/api/cuenta/compras/{id}` | Una compra propia con sus boletas. | Cliente |
@@ -172,14 +203,14 @@ Base: `http://localhost:8080`. Los datos se envían y reciben en JSON, salvo el 
 | **Eventos** | | | |
 | GET | `/api/eventos?idEscenario=&idTipo=` | Lista los eventos; filtros opcionales. | Administrador |
 | GET | `/api/eventos/{id}` | Retorna un evento por id. | Administrador |
-| POST | `/api/eventos` | Programa un evento. | Administrador |
-| PUT | `/api/eventos/{id}` | Actualiza nombre, tipo, fecha y horario. | Administrador |
+| POST | `/api/eventos` | Programa un evento con su edad mínima. | Administrador |
+| PUT | `/api/eventos/{id}` | Actualiza nombre, tipo, fecha, horario y edad mínima. | Administrador |
 | DELETE | `/api/eventos/{id}` | Elimina un evento sin ventas ni auditoría (borra sus tarifas). | Administrador |
 | **Clientes** | | | |
 | GET | `/api/clientes` | Lista los clientes (sin contraseña). | Administrador |
 | GET | `/api/clientes/{id}` | Retorna un cliente por id. | Administrador |
 | POST | `/api/clientes` | Registra un cliente con una contraseña inicial. | Administrador |
-| PUT | `/api/clientes/{id}` | Actualiza nombre, correo y teléfono. | Administrador |
+| PUT | `/api/clientes/{id}` | Actualiza nombres, apellidos, género, correo, celular y residencia. | Administrador |
 | DELETE | `/api/clientes/{id}` | Elimina la cuenta de un cliente sin compras. | Administrador |
 | **Precios de un evento** | | | |
 | GET | `/api/eventos/{id}/precios` | Lista las tarifas del evento. | Administrador |
@@ -202,6 +233,7 @@ Base: `http://localhost:8080`. Los datos se envían y reciben en JSON, salvo el 
 | GET | `/api/reportes/eventos-baja-ocupacion?umbral=50` | Eventos con ocupación menor al umbral (F5, subconsulta en FROM). | Analista |
 | GET | `/api/reportes/precios-sobre-promedio` | Tarifas mayores al promedio (subconsulta escalar). | Analista |
 | GET | `/api/reportes/clientes-sin-compras` | Clientes que nunca han comprado (subconsulta NOT EXISTS). | Analista |
+| GET | `/api/reportes/perfil-compradores` | Boletas por género, rango de edad y departamento (vistas). | Analista |
 | GET | `/api/reportes/clientes` | Compras y boletas por cliente sin datos sensibles (vista). | Analista |
 
 Ejemplo de compra (con la sesión del cliente):
@@ -218,11 +250,11 @@ POST /api/compras
 | 200 | GET, PUT y PATCH exitosos |
 | 201 | POST exitoso; devuelve el registro creado |
 | 204 | DELETE exitoso y cierre de sesión |
-| 400 | Falta un dato obligatorio o un dato viola un CHECK (precio negativo, teléfono con letras...) |
+| 400 | Falta un dato obligatorio o un dato viola un CHECK (precio negativo, celular con letras, menor de 14 años...) |
 | 401 | No ha iniciado sesión, la sesión venció o el correo o la contraseña son incorrectos |
 | 403 | El rol de la sesión no tiene acceso a esa ruta, falta el token CSRF o PostgreSQL negó el permiso |
 | 404 | El id no existe |
-| 409 | Choca con una regla o con otros datos: localidad agotada, evento realizado, documento repetido, registro con dependientes |
+| 409 | Choca con una regla o con otros datos: localidad agotada, evento realizado, edad mínima del evento, documento repetido, registro con dependientes |
 | 503 | PostgreSQL está apagado o la conexión de `application.properties` es incorrecta |
 
 Todos los errores tienen la forma `{"estado": 409, "mensaje": "..."}`. La clase `ManejadorErrores` traduce el SQLSTATE de PostgreSQL al código HTTP: `P0001` (RAISE EXCEPTION de un trigger) da 409; `23505` (UNIQUE) y `23503` o `23001` (FOREIGN KEY) dan 409; `23514` (CHECK) y `23502` (NOT NULL) dan 400; `42501` (permiso denegado) da 403; y `P0002` da 404.
@@ -231,11 +263,11 @@ Todos los errores tienen la forma `{"estado": 409, "mensaje": "..."}`. La clase 
 
 | Funcionalidad | Qué hace | Endpoint | Tablas |
 |---|---|---|---|
-| **F1. Compra de boletas con control de aforo** (caso principal) | La función `fn_registrar_compra` crea la compra a nombre del cliente que inició sesión y una boleta por cupo, en una sola transacción. El trigger `trg_boleta_validar` revisa cada boleta: que no se supere el aforo (con un bloqueo para compras simultáneas), que el evento no se haya realizado y que la localidad tenga precio; además fija el precio pagado. Si una boleta falla, no se guarda nada. | `POST /api/compras` | Modifica `compra` y `boleta`. Consulta `cliente`, `evento`, `localidad` y `precio_localidad` |
+| **F1. Compra de boletas con control de aforo y edad** (caso principal) | La función `fn_registrar_compra` crea la compra a nombre del cliente que inició sesión y una boleta por cupo, en una sola transacción. El trigger `trg_boleta_validar` revisa cada boleta: que no se supere el aforo (con un bloqueo para compras simultáneas), que el evento no se haya realizado, que el cliente tenga la edad mínima el día del evento y que la localidad tenga precio; además fija el precio pagado. Si una boleta falla, no se guarda nada. | `POST /api/compras` | Modifica `compra` y `boleta`. Consulta `cliente`, `evento`, `localidad` y `precio_localidad` |
 | **F2. Anulación de compras** | El procedimiento `sp_anular_compra` pasa a Cancelada todas las boletas de la compra y libera sus cupos. No se anula una compra de un evento ya realizado ni una ya anulada. Nada se borra. | `PATCH /api/compras/{id}/anular` | Modifica `boleta`. Consulta `compra` y `evento` |
 | **F3. Cambio de precio con auditoría** | Cambia el precio de una localidad en un evento. El trigger `trg_auditar_precio` guarda en el historial el valor anterior, el nuevo, el correo del administrador y la fecha. Las boletas ya vendidas conservan el precio que se pagó. | `PUT /api/eventos/{id}/precios/{idLocalidad}` y `GET /api/historial-precios` | Modifica `precio_localidad` e inserta en `historial_precios` |
 | **F4. Disponibilidad en tiempo real** | Muestra por localidad el precio, el aforo, las boletas vendidas y las disponibles. Solo cuentan las boletas Vendida: una cancelada libera el cupo. | `GET /api/eventos/{id}/disponibilidad` | Vista `v_ocupacion_localidad` (`precio_localidad`, `evento`, `escenario`, `localidad`, `boleta`) |
-| **F5. Reportes de ocupación y recaudo** | Resumen con el recaudo y las ventas por tipo de evento, escenario y mes; porcentaje de ocupación y recaudo por localidad; eventos cuya ocupación está por debajo de un umbral. | `GET /api/reportes/resumen`, `GET /api/reportes/ocupacion` y `GET /api/reportes/eventos-baja-ocupacion?umbral=50` | Vistas `v_ocupacion_localidad`, `v_boletas_detalle` y `v_catalogo_eventos` |
+| **F5. Reportes de ocupación y recaudo** | Resumen con el recaudo y las ventas por tipo de evento, escenario y mes; porcentaje de ocupación y recaudo por localidad; eventos cuya ocupación está por debajo de un umbral; ventas por género, rango de edad y departamento de quien compra. | `GET /api/reportes/resumen`, `GET /api/reportes/ocupacion`, `GET /api/reportes/eventos-baja-ocupacion?umbral=50` y `GET /api/reportes/perfil-compradores` | Vistas `v_ocupacion_localidad`, `v_boletas_detalle`, `v_catalogo_eventos` y `v_clientes_publico` |
 | **F6. Historial de compras del cliente** | Compras del cliente que inició sesión (próximas, realizadas y anuladas) con evento, localidad, total y estado; al abrir una, sus boletas. | `GET /api/cuenta/compras` y `GET /api/cuenta/compras/{id}` | Vistas `v_compras_resumen` y `v_boletas_detalle` |
 
 ## Vistas y subconsultas (R3 y R4)
@@ -246,7 +278,8 @@ Todos los errores tienen la forma `{"estado": 409, "mensaje": "..."}`. La clase 
 | `v_catalogo_eventos` | Vista de simplificación | `GET /api/catalogo` |
 | `v_compras_resumen` | Vista de simplificación (una fila por compra) | `GET /api/cuenta/compras`, `GET /api/compras`, `GET /api/compras/{id}` |
 | `v_boletas_detalle` | Vista de simplificación (une 7 tablas) | `GET /api/boletas/{id}`, `GET /api/clientes/{id}/boletas`, boletas de una compra, `GET /api/reportes/resumen` |
-| `v_clientes_publico` | Vista de seguridad (sin documento ni teléfono) | `GET /api/reportes/clientes` |
+| `v_clientes_publico` | Vista de seguridad (edad, género y ciudad; sin documento, celular, dirección ni fecha de nacimiento) | `GET /api/reportes/clientes`, `/clientes-sin-compras` y `/perfil-compradores` |
+| `v_ubicaciones` | Vista de simplificación (ciudad, departamento, país e indicativo) | `GET /api/ubicaciones` |
 | `v_cuentas` | Vista de seguridad (inicio de sesión) | `POST /api/auth/login` |
 | `v_boletas_vigentes` | Vista con `WITH CHECK OPTION` | pgAdmin (administrador) |
 | Subconsulta escalar en WHERE | Tarifas por encima del promedio | `GET /api/reportes/precios-sobre-promedio` |
@@ -274,12 +307,16 @@ Las reglas que comparan varias filas o tablas se implementan con triggers en `02
 | Boletas, compras e historial no se borran (RNF-07) | `trg_boleta_no_borrar`, `trg_compra_no_borrar`, `trg_historial_no_borrar` |
 | Las contraseñas solo se guardan cifradas (RN-23) | CHECK `chk_cliente_contrasena` y `chk_empleado_contrasena` |
 | El dominio @bogotickets.co es solo de los empleados (RN-24) | CHECK `chk_cliente_correo_dominio` y `chk_empleado_correo` |
+| El comprador tiene la edad mínima del evento el día del evento (RN-25) | `trg_boleta_validar` |
+| Se necesitan 14 años para crear una cuenta (RN-26) | CHECK `chk_cliente_nacimiento` |
+| La CC es de mayores de edad y la TI de menores (RN-27) | CHECK `chk_cliente_cc_mayor_edad` y `chk_cliente_ti_menor_edad` |
+| No se elimina una ciudad donde viven clientes o empleados | FK `fk_cliente_ciudad` y `fk_empleado_ciudad` (RESTRICT) |
 
 ## Usuarios y permisos de PostgreSQL
 
 | Usuario o rol | Tiene | Uso |
 |---|---|---|
-| `rol_cliente` | catálogo, su cuenta, compras y boletas, `fn_registrar_compra` | Peticiones del cliente |
+| `rol_cliente` | catálogo, su cuenta (sin cambiar documento ni fecha de nacimiento), compras y boletas, `v_ubicaciones`, `fn_registrar_compra` | Peticiones del cliente |
 | `rol_administrador` | catálogo, clientes (sin la contraseña), precios, historial, `sp_anular_compra` | Peticiones del administrador |
 | `rol_analista` | solo vistas de reporte | Peticiones del analista |
 | `usuario_app` | `v_cuentas` y `SET ROLE` a los tres roles (NOINHERIT) | Cuenta con la que la API se conecta |
@@ -290,7 +327,9 @@ Ningún usuario tiene `GRANT ALL`, `TRUNCATE` ni permiso para crear tablas. Las 
 
 ## Datos de prueba
 
-18 escenarios reales de Bogotá (El Campín, Movistar Arena, Vive Claro, Coliseo MedPlus, Plaza Cultural La Santamaría, Teatro Mayor, Teatro Colón, Teatro Royal Center, Corferias, Parque Simón Bolívar, Estadio de Techo, Cinemateca de Bogotá, entre otros) y 60 eventos con artistas, equipos, festivales y obras reales. Las fechas, los precios, los clientes y las ventas son datos de prueba. Los eventos con fecha posterior al 26 de noviembre de 2026 están a la venta.
+18 escenarios reales de Bogotá (El Campín, Movistar Arena, Vive Claro, Coliseo MedPlus, Plaza Cultural La Santamaría, Teatro Mayor, Teatro Colón, Teatro Royal Center, Corferias, Parque Simón Bolívar, Estadio de Techo, Cinemateca de Bogotá, entre otros) y 60 eventos con artistas, equipos, festivales y obras reales. Las fechas, los precios, las edades mínimas, los clientes y las ventas son datos de prueba. Los eventos con fecha posterior al 26 de noviembre de 2026 están a la venta.
+
+Las ubicaciones incluyen los 33 departamentos de Colombia (con Bogotá D.C.) con sus capitales y municipios grandes, y 12 países más con sus ciudades principales. De los 221 clientes, la mayoría vive en Bogotá y la Sabana; hay menores de edad registrados con tarjeta de identidad y extranjeros con cédula de extranjería, PPT o pasaporte. Cada compra de prueba respeta la edad mínima de su evento.
 
 ## Estructura del repositorio
 

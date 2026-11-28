@@ -155,6 +155,7 @@ FOR EACH ROW EXECUTE FUNCTION fn_compra_validar();
 -- Boleta, al venderla:
 --   RNF-03 la compra no es anterior a la creación del evento
 --   RN-17  no se venden boletas de un evento que ya se realizó
+--   RN-25  el comprador tiene la edad mínima del evento el día del evento
 --   RN-08  solo se venden localidades con precio en el evento
 --   RN-16  el precio pagado es el precio vigente de la localidad
 --   RN-07  no se supera el aforo (RNF-01). El bloqueo por evento y
@@ -167,14 +168,18 @@ CREATE OR REPLACE FUNCTION fn_boleta_validar() RETURNS trigger
 LANGUAGE plpgsql AS $$
 DECLARE
     v_fecha_compra    DATE;
+    v_nacimiento      DATE;
     v_evento          VARCHAR(150);
     v_fecha_evento    DATE;
     v_registro_evento DATE;
+    v_edad_minima     INTEGER;
+    v_edad            INTEGER;
     v_localidad       VARCHAR(50);
     v_aforo           INTEGER;
     v_vendidas        INTEGER;
 BEGIN
-    SELECT nombre, fecha, fecha_registro INTO v_evento, v_fecha_evento, v_registro_evento
+    SELECT nombre, fecha, fecha_registro, edad_minima
+    INTO   v_evento, v_fecha_evento, v_registro_evento, v_edad_minima
     FROM   evento WHERE id_evento = NEW.id_evento;
 
     IF TG_OP = 'UPDATE' THEN
@@ -191,8 +196,11 @@ BEGIN
         RETURN NEW;
     END IF;
 
-    SELECT fecha_compra::date INTO v_fecha_compra
-    FROM   compra WHERE id_compra = NEW.id_compra;
+    SELECT co.fecha_compra::date, c.fecha_nacimiento
+    INTO   v_fecha_compra, v_nacimiento
+    FROM   compra co
+    JOIN   cliente c ON c.id_cliente = co.id_cliente
+    WHERE  co.id_compra = NEW.id_compra;
 
     IF v_fecha_compra < v_registro_evento THEN
         RAISE EXCEPTION 'La compra (%) es anterior a la creación del evento «%» (%)',
@@ -200,6 +208,14 @@ BEGIN
     END IF;
     IF v_fecha_compra > v_fecha_evento THEN
         RAISE EXCEPTION 'El evento «%» ya se realizó (%): no se venden boletas', v_evento, v_fecha_evento;
+    END IF;
+
+    -- Años cumplidos el día del evento: quien compra en noviembre con 17 años
+    -- puede ir a un evento de marzo si ya tendrá 18
+    v_edad := EXTRACT(YEAR FROM age(v_fecha_evento, v_nacimiento));
+    IF v_edad < v_edad_minima THEN
+        RAISE EXCEPTION '«%» exige una edad mínima de % años y el comprador tendrá % años el día del evento',
+              v_evento, v_edad_minima, v_edad;
     END IF;
 
     IF NEW.precio_pagado IS NULL THEN

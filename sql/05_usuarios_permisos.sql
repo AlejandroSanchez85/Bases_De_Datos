@@ -85,13 +85,18 @@ GRANT SELECT ON v_cuentas TO usuario_app;
 
 -- 4. rol_cliente: registro, catálogo, compra e historial propio (RF-05 a RF-09)
 -- La contraseña se puede escribir (registro) pero no leer: el SELECT es por columnas.
+-- El documento y la fecha de nacimiento no tienen UPDATE: identifican a la persona
+-- y respaldan la restricción de edad (RN-25).
 GRANT SELECT ON escenario, localidad, tipo_evento, evento, precio_localidad TO rol_cliente;
-GRANT SELECT (id_cliente, documento, nombre_completo, correo, telefono, fecha_registro)
+GRANT SELECT (id_cliente, tipo_documento, numero_documento, nombres, apellidos, fecha_nacimiento,
+              genero, correo, indicativo, celular, id_ciudad, direccion, fecha_registro)
       ON cliente TO rol_cliente;
 GRANT INSERT, DELETE ON cliente TO rol_cliente;          -- DELETE: solo cuentas sin compras (FK)
-GRANT UPDATE (nombre_completo, correo, telefono) ON cliente TO rol_cliente;
+GRANT UPDATE (nombres, apellidos, genero, correo, indicativo, celular, id_ciudad, direccion)
+      ON cliente TO rol_cliente;
 GRANT SELECT, INSERT ON compra, boleta TO rol_cliente;
-GRANT SELECT ON v_catalogo_eventos, v_ocupacion_localidad, v_boletas_detalle, v_compras_resumen
+GRANT SELECT ON v_catalogo_eventos, v_ocupacion_localidad, v_boletas_detalle, v_compras_resumen,
+                v_ubicaciones
       TO rol_cliente;
 GRANT EXECUTE ON FUNCTION fn_registrar_compra(INTEGER, INTEGER, INTEGER, INTEGER, VARCHAR) TO rol_cliente;
 
@@ -102,22 +107,28 @@ GRANT SELECT, INSERT, DELETE ON escenario, localidad, tipo_evento, evento, preci
 GRANT UPDATE (nombre, direccion, capacidad_maxima)                   ON escenario        TO rol_administrador;
 GRANT UPDATE (nombre, aforo_maximo)                                  ON localidad        TO rol_administrador;
 GRANT UPDATE (nombre, descripcion)                                   ON tipo_evento      TO rol_administrador;
-GRANT UPDATE (nombre, id_tipo_evento, fecha, hora_inicio, hora_fin)  ON evento           TO rol_administrador;
+GRANT UPDATE (nombre, id_tipo_evento, fecha, hora_inicio, hora_fin, edad_minima)
+                                                                     ON evento           TO rol_administrador;
 GRANT UPDATE (precio)                                                ON precio_localidad TO rol_administrador;
-GRANT SELECT (id_cliente, documento, nombre_completo, correo, telefono, fecha_registro)
+GRANT SELECT (id_cliente, tipo_documento, numero_documento, nombres, apellidos, fecha_nacimiento,
+              genero, correo, indicativo, celular, id_ciudad, direccion, fecha_registro)
       ON cliente TO rol_administrador;
 GRANT INSERT, DELETE ON cliente TO rol_administrador;
-GRANT UPDATE (nombre_completo, correo, telefono) ON cliente TO rol_administrador;
+GRANT UPDATE (nombres, apellidos, genero, correo, indicativo, celular, id_ciudad, direccion)
+      ON cliente TO rol_administrador;
 GRANT SELECT, INSERT ON historial_precios TO rol_administrador;     -- el trigger de auditoría escribe aquí
 GRANT SELECT ON compra, boleta TO rol_administrador;
 GRANT UPDATE (estado) ON boleta TO rol_administrador;               -- anular, nunca borrar
-GRANT SELECT ON v_ocupacion_localidad, v_boletas_detalle, v_boletas_vigentes, v_compras_resumen
+GRANT SELECT ON v_ocupacion_localidad, v_boletas_detalle, v_boletas_vigentes, v_compras_resumen,
+                v_ubicaciones
       TO rol_administrador;
 GRANT EXECUTE ON PROCEDURE sp_anular_compra(INTEGER) TO rol_administrador;
 
 
--- 6. rol_analista: solo vistas, ninguna tabla base (RNF-04)
-GRANT SELECT ON v_catalogo_eventos, v_ocupacion_localidad, v_boletas_detalle, v_clientes_publico
+-- 6. rol_analista: solo vistas, ninguna tabla base (RNF-04). v_clientes_publico le
+-- muestra la edad, el género y la ciudad de los clientes, no sus datos de contacto.
+GRANT SELECT ON v_catalogo_eventos, v_ocupacion_localidad, v_boletas_detalle, v_clientes_publico,
+                v_ubicaciones
       TO rol_analista;
 
 

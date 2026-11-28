@@ -22,6 +22,7 @@ public class EventoRepository {
             rs.getObject("fecha", LocalDate.class),
             rs.getObject("hora_inicio", LocalTime.class),
             rs.getObject("hora_fin", LocalTime.class),
+            rs.getInt("edad_minima"),
             rs.getObject("fecha_registro", LocalDate.class));
 
     private final JdbcTemplate jdbc;
@@ -55,20 +56,22 @@ public class EventoRepository {
     // trg_evento_horario rechaza el evento si se cruza con otro del mismo escenario
     public Evento crear(Evento e) {
         return jdbc.queryForObject("""
-                INSERT INTO evento (id_escenario, id_tipo_evento, nombre, fecha, hora_inicio, hora_fin)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO evento (id_escenario, id_tipo_evento, nombre, fecha, hora_inicio, hora_fin, edad_minima)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 RETURNING *""",
-                MAPEO, e.idEscenario(), e.idTipoEvento(), e.nombre(), e.fecha(), e.horaInicio(), e.horaFin());
+                MAPEO, e.idEscenario(), e.idTipoEvento(), e.nombre(), e.fecha(), e.horaInicio(), e.horaFin(),
+                e.edadMinima());
     }
 
-    // El escenario no se cambia: las tarifas y boletas del evento dependen de él
+    // El escenario no se cambia: las tarifas y boletas del evento dependen de él.
+    // Un cambio de edad mínima no afecta las boletas ya vendidas.
     public Optional<Evento> actualizar(int id, Evento e) {
         return jdbc.query("""
                 UPDATE evento
-                SET    nombre = ?, id_tipo_evento = ?, fecha = ?, hora_inicio = ?, hora_fin = ?
+                SET    nombre = ?, id_tipo_evento = ?, fecha = ?, hora_inicio = ?, hora_fin = ?, edad_minima = ?
                 WHERE  id_evento = ?
                 RETURNING *""",
-                MAPEO, e.nombre(), e.idTipoEvento(), e.fecha(), e.horaInicio(), e.horaFin(), id)
+                MAPEO, e.nombre(), e.idTipoEvento(), e.fecha(), e.horaInicio(), e.horaFin(), e.edadMinima(), id)
                 .stream().findFirst();
     }
 

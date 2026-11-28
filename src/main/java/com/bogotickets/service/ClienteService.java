@@ -31,16 +31,22 @@ public class ClienteService {
     }
 
     // Registro de una cuenta: lo usa el cliente (registro) y el administrador.
-    // A la base solo llega el hash BCrypt de la contraseña (RN-23).
-    public Cliente crear(RegistroRequest datos) {
-        RegistroRequest limpio = new RegistroRequest(datos.documento().trim(), datos.nombreCompleto().trim(),
-                datos.correo().trim().toLowerCase(), datos.telefono().trim(), datos.contrasena());
-        return repositorio.crear(limpio, codificador.encode(datos.contrasena()));
+    // A la base solo llega el hash BCrypt de la contraseña (RN-23). Las reglas de edad y
+    // de documento (RN-26, RN-27) las revisa la base con CHECK.
+    public Cliente crear(RegistroRequest d) {
+        RegistroRequest limpio = new RegistroRequest(d.tipoDocumento().trim().toUpperCase(),
+                sinSeparadores(d.numeroDocumento()).toUpperCase(), d.nombres().trim(), d.apellidos().trim(),
+                d.fechaNacimiento(), d.genero().trim().toUpperCase(), d.correo().trim().toLowerCase(),
+                d.indicativo().trim(), sinSeparadores(d.celular()), d.idCiudad(), d.direccion().trim(),
+                d.contrasena());
+        return repositorio.crear(limpio, codificador.encode(d.contrasena()));
     }
 
-    public Cliente actualizar(int id, Cliente cliente) {
-        Cliente limpio = new Cliente(id, cliente.documento(), cliente.nombreCompleto().trim(),
-                cliente.correo().trim().toLowerCase(), cliente.telefono().trim(), null);
+    public Cliente actualizar(int id, Cliente c) {
+        Cliente limpio = new Cliente(id, c.tipoDocumento(), c.numeroDocumento(), c.nombres().trim(),
+                c.apellidos().trim(), c.fechaNacimiento(), c.genero().trim().toUpperCase(),
+                c.correo().trim().toLowerCase(), c.indicativo().trim(), sinSeparadores(c.celular()),
+                c.idCiudad(), c.direccion().trim(), null);
         return repositorio.actualizar(id, limpio).orElseThrow(() -> noExiste(id));
     }
 
@@ -49,6 +55,11 @@ public class ClienteService {
         if (!repositorio.eliminar(id)) {
             throw noExiste(id);
         }
+    }
+
+    // "1.020.456.789" -> "1020456789" y "311 482 0931" -> "3114820931"
+    private static String sinSeparadores(String texto) {
+        return texto.replaceAll("[\\s.-]", "");
     }
 
     private RecursoNoEncontradoException noExiste(int id) {

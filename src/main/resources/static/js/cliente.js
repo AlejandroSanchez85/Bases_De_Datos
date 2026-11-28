@@ -1,7 +1,8 @@
 import { api } from './api.js';
+import { armarCamposPersona, cargarUbicaciones, llenarCamposPersona, textoCiudad } from './persona.js';
 import {
-    $, boton, crear, cuadroDia, etiquetaEstado, fecha, fechaHora, fechaLarga, hora, hoy, leerFormulario, limpiar,
-    llenarSelect, mostrarError, mostrarExito, mostrarVista, normalizar, numero, pesos, pintarTabla,
+    $, boton, crear, cuadroDia, edad, etiquetaEstado, fecha, fechaHora, fechaLarga, hora, hoy, leerFormulario, limpiar,
+    llenarSelect, mostrarError, mostrarExito, mostrarVista, normalizar, numero, pesos, pintarTabla, textoEdadMinima,
 } from './util.js';
 
 // Módulo del cliente: cartelera, compra (caso de uso principal), mis compras y mi cuenta
@@ -104,7 +105,9 @@ function pintarCartelera() {
     for (const e of eventos) {
         rejilla.append(crear('article', { clase: 'tarjeta-evento', onclick: () => abrirEvento(e) },
             crear('div', { clase: 'banda tipo-' + e.idTipoEvento },
-                crear('span', { clase: 'tipo', texto: e.tipoEvento }),
+                crear('div', {},
+                    crear('span', { clase: 'tipo', texto: e.tipoEvento }),
+                    crear('span', { clase: 'edad-minima', texto: textoEdadMinima(e.edadMinima) })),
                 cuadroDia(e.fecha)),
             crear('div', { clase: 'cuerpo-evento' },
                 crear('h3', { texto: e.evento }),
@@ -140,8 +143,15 @@ async function abrirEvento(evento) {
             crear('span', { clase: 'tipo', texto: evento.tipoEvento.toUpperCase() }),
             crear('h2', { texto: evento.evento }),
             crear('p', { texto: `${fechaLarga(evento.fecha)} · ${hora(evento.horaInicio)} a ${hora(evento.horaFin)}` }),
-            crear('p', { texto: `${evento.escenario} · ${evento.direccion}` })),
+            crear('p', { texto: `${evento.escenario} · ${evento.direccion}` }),
+            crear('p', { texto: evento.edadMinima > 0
+                ? `Edad mínima: ${evento.edadMinima} años cumplidos el día del evento`
+                : 'Todo público' })),
         cuadroDia(evento.fecha));
+    // La página solo informa la edad mínima: la regla la revisa PostgreSQL al comprar (RN-25)
+    $('compra-edad').hidden = evento.edadMinima === 0;
+    $('compra-edad').textContent = `Este evento es para mayores de ${evento.edadMinima} años. La base de datos `
+        + 'lo verifica con la fecha de nacimiento de su cuenta.';
     $('compra-formulario').hidden = false;
     $('compra-confirmacion').hidden = true;
     limpiar($('compra-mensaje'));
@@ -325,12 +335,12 @@ async function alternarBoletas(idCompra, contenedor, botonVer) {
 async function cargarCuenta() {
     limpiar($('cuenta-mensaje'), $('cuenta-eliminar-mensaje'));
     try {
+        await cargarUbicaciones();
         const cliente = await api.get('/api/cuenta');
-        const form = $('form-cuenta');
-        for (const clave of ['documento', 'nombreCompleto', 'correo', 'telefono']) {
-            form.elements[clave].value = cliente[clave];
-        }
-        $('cuenta-registro').textContent = `Cliente desde el ${fecha(cliente.fechaRegistro)}`;
+        armarCamposPersona($('cuenta-campos'), { identidadFija: true });
+        llenarCamposPersona($('cuenta-campos'), cliente);
+        $('cuenta-registro').textContent = `Cliente desde el ${fecha(cliente.fechaRegistro)} · `
+            + `${edad(cliente.fechaNacimiento)} años · ${textoCiudad(cliente.idCiudad)}`;
     } catch (e) {
         mostrarError($('cuenta-mensaje'), e.message);
     }
@@ -340,7 +350,7 @@ async function guardarCuenta(evento) {
     evento.preventDefault();
     try {
         const cliente = await api.put('/api/cuenta', leerFormulario($('form-cuenta')));
-        $('usuario-nombre').textContent = cliente.nombreCompleto;
+        $('usuario-nombre').textContent = `${cliente.nombres} ${cliente.apellidos}`;
         mostrarExito($('cuenta-mensaje'), 'Sus datos quedaron actualizados. Si cambió el correo, úselo la próxima vez que inicie sesión.');
     } catch (e) {
         mostrarError($('cuenta-mensaje'), e.message);

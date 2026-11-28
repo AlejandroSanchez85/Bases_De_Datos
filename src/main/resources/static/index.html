@@ -44,26 +44,23 @@
             <div id="entrar-mensaje"></div>
         </form>
 
-        <form id="form-registro" class="formulario dos-columnas" novalidate hidden>
-            <h1 class="completo">Crear cuenta de cliente</h1>
-            <label class="campo"><span>Documento</span><input name="documento" autocomplete="off"></label>
-            <label class="campo"><span>Teléfono</span><input name="telefono" autocomplete="tel"></label>
-            <label class="campo completo"><span>Nombre completo</span><input name="nombreCompleto" autocomplete="name"></label>
-            <label class="campo completo"><span>Correo</span><input name="correo" type="email" autocomplete="email"></label>
-            <label class="campo"><span>Contraseña</span>
-                <input name="contrasena" type="password" autocomplete="new-password"></label>
-            <label class="campo"><span>Repetir contraseña</span>
-                <input id="registro-repetir" type="password" autocomplete="new-password"></label>
-            <p class="ayuda completo">La contraseña debe tener al menos 8 caracteres. El documento solo admite números
-                y letras mayúsculas.</p>
-            <button type="submit" class="boton ancho completo">Crear cuenta</button>
-            <div id="registro-mensaje" class="completo"></div>
+        <form id="form-registro" class="formulario una-columna" novalidate hidden>
+            <h1>Crear cuenta de cliente</h1>
+            <!-- Los campos de la persona los arma js/persona.js (también los usan Mi cuenta y Administración) -->
+            <div id="registro-campos"></div>
+            <p class="ayuda">La contraseña debe tener al menos 8 caracteres. Para crear una cuenta se necesitan
+                14 años cumplidos; la fecha de nacimiento sirve para las restricciones de edad de los eventos y no se
+                puede cambiar después.</p>
+            <button type="submit" class="boton ancho">Crear cuenta</button>
+            <div id="registro-mensaje"></div>
         </form>
 
         <div class="cuentas-prueba">
             <p><strong>Cuentas de prueba</strong> · clic para llenar el formulario</p>
             <button type="button" data-correo="laura.rodriguez92@gmail.com" data-clave="Cliente2026*">
                 <span class="etiqueta rol-cliente">Cliente</span> laura.rodriguez92@gmail.com · Cliente2026*</button>
+            <button type="button" data-correo="sara.medina@gmail.com" data-clave="Cliente2026*">
+                <span class="etiqueta rol-cliente">Cliente de 16 años</span> sara.medina@gmail.com · Cliente2026*</button>
             <button type="button" data-correo="admin@bogotickets.co" data-clave="Admin2026*">
                 <span class="etiqueta rol-administrador">Administrador</span> admin@bogotickets.co · Admin2026*</button>
             <button type="button" data-correo="analista@bogotickets.co" data-clave="Analista2026*">
@@ -147,6 +144,7 @@
                         <button type="button" id="compra-confirmar" class="boton ancho" disabled>Comprar boletas</button>
                         <p class="ayuda">Máximo 10 boletas por compra. Si una de las boletas se queda sin cupo,
                             la compra completa se rechaza y no se cobra nada.</p>
+                        <p class="aviso-edad" id="compra-edad" hidden></p>
                     </div>
                     <div id="compra-mensaje"></div>
                     <div id="compra-confirmacion" hidden></div>
@@ -177,12 +175,11 @@
                 <div class="tarjeta">
                     <h2>Mi cuenta</h2>
                     <p class="suave" id="cuenta-registro"></p>
-                    <form id="form-cuenta" class="formulario dos-columnas" novalidate>
-                        <label class="campo"><span>Documento</span><input name="documento" disabled></label>
-                        <label class="campo"><span>Teléfono</span><input name="telefono"></label>
-                        <label class="campo completo"><span>Nombre completo</span><input name="nombreCompleto"></label>
-                        <label class="campo completo"><span>Correo (también es su usuario)</span><input name="correo" type="email"></label>
-                        <div class="acciones completo"><button type="submit" class="boton">Guardar cambios</button></div>
+                    <form id="form-cuenta" class="formulario una-columna" novalidate>
+                        <div id="cuenta-campos"></div>
+                        <p class="ayuda">El documento y la fecha de nacimiento no se pueden cambiar: identifican a la
+                            persona y se usan para las restricciones de edad. El correo también es su usuario.</p>
+                        <div class="acciones"><button type="submit" class="boton">Guardar cambios</button></div>
                     </form>
                     <div id="cuenta-mensaje"></div>
                 </div>
@@ -315,6 +312,7 @@
                 <button type="button" data-reporte="ocupacion">Ocupación y recaudo</button>
                 <button type="button" data-reporte="baja">Baja ocupación</button>
                 <button type="button" data-reporte="promedio">Tarifas sobre el promedio</button>
+                <button type="button" data-reporte="perfil">Perfil de compradores</button>
                 <button type="button" data-reporte="sin-compras">Clientes sin compras</button>
                 <button type="button" data-reporte="clientes">Comportamiento de compra</button>
             </nav>
@@ -371,6 +369,25 @@
                 <div id="promedio-mensaje"></div>
                 <p id="promedio-resumen" class="resumen"></p>
                 <div id="promedio-tabla"></div>
+            </div>
+
+            <div class="reporte" data-reporte="perfil" hidden>
+                <div id="perfil-mensaje"></div>
+                <div class="columnas-resumen">
+                    <div class="tarjeta">
+                        <h3>Boletas por género</h3>
+                        <div id="perfil-genero"></div>
+                    </div>
+                    <div class="tarjeta">
+                        <h3>Boletas por rango de edad</h3>
+                        <div id="perfil-edad"></div>
+                    </div>
+                </div>
+                <div class="tarjeta">
+                    <h3>Departamentos de residencia con más compras</h3>
+                    <p class="fuente">Vistas v_boletas_detalle y v_clientes_publico · GET /api/reportes/perfil-compradores</p>
+                    <div id="perfil-departamento"></div>
+                </div>
             </div>
 
             <div class="tarjeta reporte" data-reporte="sin-compras" hidden>

@@ -1,4 +1,5 @@
 import { api } from './api.js';
+import { cargarUbicaciones } from './persona.js';
 import { fecha } from './util.js';
 
 // Listas que usan los selectores de Administración. Se cargan al iniciar sesión
@@ -19,6 +20,7 @@ export async function recargarDatos() {
         api.get('/api/eventos'),
         api.get('/api/clientes'),
         api.get('/api/localidades'),
+        cargarUbicaciones(),            // para el formulario de clientes
     ]);
     Object.assign(datos, { escenarios, tipos, eventos, clientes, localidades });
     avisos.forEach(funcion => funcion());
