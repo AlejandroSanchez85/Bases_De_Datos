@@ -51,6 +51,18 @@ export function hoy(masDias = 0) {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+// Años cumplidos en una fecha (por defecto hoy): edad('1992-04-17') -> 34
+export function edad(fechaNacimiento, enFecha = hoy()) {
+    const [a1, m1, d1] = fechaNacimiento.split('-').map(Number);
+    const [a2, m2, d2] = enFecha.split('-').map(Number);
+    return a2 - a1 - (m2 < m1 || (m2 === m1 && d2 < d1) ? 1 : 0);
+}
+
+// «+18» o «Todo público»
+export function textoEdadMinima(edadMinima) {
+    return edadMinima > 0 ? `+${edadMinima}` : 'Todo público';
+}
+
 // Quita tildes y pasa a minúsculas, para buscar sin importar cómo se escribió
 export function normalizar(texto) {
     return String(texto ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();

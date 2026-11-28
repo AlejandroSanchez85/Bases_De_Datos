@@ -135,6 +135,16 @@ h3 {
     padding: 40px 32px;
 }
 
+/* El registro tiene más campos: el panel se ensancha y la marca queda angosta */
+.ingreso.registrando {
+    grid-template-columns: 0.7fr 1.3fr;
+}
+
+.ingreso.registrando .ingreso-panel {
+    max-width: 760px;
+    justify-content: flex-start;
+}
+
 .pestanas {
     display: flex;
     border-bottom: 1px solid var(--borde);
@@ -425,6 +435,62 @@ main {
     font: inherit;
 }
 
+/* ---------- Datos de una persona (persona.js) ---------- */
+
+.seccion-persona {
+    min-width: 0;                 /* un fieldset no se encoge por defecto */
+    margin: 0 0 14px;
+    padding: 12px 14px 14px;
+    border: 1px solid var(--borde);
+    border-radius: var(--radio);
+}
+
+.seccion-persona legend {
+    padding: 0 6px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--azul-oscuro);
+}
+
+.rejilla-persona {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.una-columna-persona .rejilla-persona {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+/* Un select mide lo que su opción más larga: así se ajusta al ancho de la columna */
+.seccion-persona .campo input,
+.seccion-persona .campo select {
+    min-width: 0;
+    width: 100%;
+}
+
+.grupo-celular {
+    display: flex;
+    gap: 8px;
+}
+
+.grupo-celular select {
+    flex: 0 0 auto;
+    width: 140px !important;
+}
+
+.grupo-celular input {
+    flex: 1;
+    min-width: 0;
+}
+
+.aviso-edad {
+    margin: 0;
+    padding: 8px 12px;
+    border-radius: 6px;
+    background: var(--ambar-claro);
+    color: var(--ambar);
+    font-size: 13px;
+}
+
 /* ---------- Botones ---------- */
 
 .boton {
@@ -543,10 +609,21 @@ main {
 }
 
 .banda .tipo {
+    display: block;
     font-size: 12px;
     font-weight: 600;
     letter-spacing: 0.6px;
     text-transform: uppercase;
+}
+
+.edad-minima {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.22);
+    font-size: 12px;
+    font-weight: 700;
 }
 
 .dia {
@@ -1120,14 +1197,17 @@ td.botones .boton + .boton {
 
 /* ---------- Distribución en columnas ---------- */
 
+/* La tabla puede encogerse (se desplaza dentro de su tarjeta) para no quitarle
+   ancho al formulario */
 .columnas-admin {
     display: grid;
-    grid-template-columns: minmax(260px, 1fr) 2.4fr;
+    grid-template-columns: minmax(300px, 1fr) minmax(0, 2.4fr);
     gap: 18px;
     align-items: start;
 }
 
 .columnas-admin > .tarjeta {
+    min-width: 0;
     margin-bottom: 0;
 }
 
@@ -1137,6 +1217,8 @@ td.botones .boton + .boton {
 }
 
 @media (max-width: 900px) {
+    .ingreso.registrando,
+    .rejilla-persona,
     .ingreso,
     .columnas-compra,
     .columnas-admin,

@@ -3,15 +3,16 @@ import {
     alActualizar, datos, nombreEscenario, nombreTipo, opcionesEscenarios, opcionesEventos, opcionesTipos,
     recargarDatos,
 } from './datos.js';
+import { armarCamposPersona, llenarCamposPersona, nombreGenero, textoCiudad } from './persona.js';
 import {
-    $, boton, crear, etiquetaEstado, fecha, fechaHora, hora, leerFormulario, limpiar, llenarSelect, mostrarError,
-    mostrarExito, mostrarVista, normalizar, numero, pesos, pintarDetalle, pintarTabla,
+    $, boton, crear, edad, etiquetaEstado, fecha, fechaHora, hora, leerFormulario, limpiar, llenarSelect, mostrarError,
+    mostrarExito, mostrarVista, normalizar, numero, pesos, pintarDetalle, pintarTabla, textoEdadMinima,
 } from './util.js';
 
 // Módulo del administrador. El CRUD de las cinco entidades usa el mismo formulario y la
 // misma tabla: cada entidad se describe abajo con su URL, sus campos y sus columnas.
-// alEditar: 'bloquear' para los campos que la API no cambia en el PUT y 'ocultar' para
-// los que solo existen al crear (la contraseña inicial de un cliente).
+// alEditar: 'bloquear' para los campos que la API no cambia en el PUT. inicial: valor de un
+// registro nuevo. Los clientes usan el formulario de persona de persona.js.
 
 const ENTIDADES = {
     eventos: {
@@ -27,6 +28,7 @@ const ENTIDADES = {
             { clave: 'fecha', etiqueta: 'Fecha', tipo: 'date' },
             { clave: 'horaInicio', etiqueta: 'Hora de inicio', tipo: 'time' },
             { clave: 'horaFin', etiqueta: 'Hora de fin', tipo: 'time' },
+            { clave: 'edadMinima', etiqueta: 'Edad mínima (0 = todo público)', tipo: 'number', inicial: '0' },
         ],
         columnas: [
             { titulo: 'Id', valor: e => e.idEvento, numero: true },
@@ -35,6 +37,7 @@ const ENTIDADES = {
             { titulo: 'Escenario', valor: e => nombreEscenario(e.idEscenario) },
             { titulo: 'Fecha', valor: e => fecha(e.fecha) },
             { titulo: 'Horario', valor: e => `${hora(e.horaInicio)} a ${hora(e.horaFin)}` },
+            { titulo: 'Edad', valor: e => textoEdadMinima(e.edadMinima) },
         ],
         describir: e => e.nombre,
     },
@@ -86,22 +89,20 @@ const ENTIDADES = {
     },
     clientes: {
         nombre: 'cliente', titulo: 'Clientes', tabla: 'cliente', url: '/api/clientes', id: 'idCliente',
-        campos: [
-            { clave: 'documento', etiqueta: 'Documento', alEditar: 'bloquear' },
-            { clave: 'nombreCompleto', etiqueta: 'Nombre completo' },
-            { clave: 'correo', etiqueta: 'Correo' },
-            { clave: 'telefono', etiqueta: 'Teléfono' },
-            { clave: 'contrasena', etiqueta: 'Contraseña inicial', tipo: 'password', alEditar: 'ocultar' },
-        ],
+        formularioPersona: true,
+        campos: [],
         columnas: [
             { titulo: 'Id', valor: c => c.idCliente, numero: true },
-            { titulo: 'Documento', valor: c => c.documento },
-            { titulo: 'Nombre', valor: c => c.nombreCompleto },
+            { titulo: 'Documento', valor: c => `${c.tipoDocumento} ${c.numeroDocumento}` },
+            { titulo: 'Nombre', valor: c => `${c.nombres} ${c.apellidos}` },
+            { titulo: 'Edad', valor: c => edad(c.fechaNacimiento), numero: true },
+            { titulo: 'Género', valor: c => nombreGenero(c.genero) },
             { titulo: 'Correo', valor: c => c.correo },
-            { titulo: 'Teléfono', valor: c => c.telefono },
+            { titulo: 'Celular', valor: c => `${c.indicativo} ${c.celular}` },
+            { titulo: 'Residencia', valor: c => textoCiudad(c.idCiudad) },
             { titulo: 'Registro', valor: c => fecha(c.fechaRegistro) },
         ],
-        describir: c => c.nombreCompleto,
+        describir: c => `${c.nombres} ${c.apellidos}`,
     },
 };
 
@@ -207,10 +208,16 @@ function armarFormulario(registro = null) {
 
     const campos = $('crud-campos');
     campos.replaceChildren();
-    for (const campo of entidad.campos) {
-        if (registro && campo.alEditar === 'ocultar') {
-            continue;
+    if (entidad.formularioPersona) {
+        // Al editar no se cambian el documento ni la fecha de nacimiento, ni se ve la contraseña
+        armarCamposPersona(campos, { identidadFija: Boolean(registro), contrasena: registro ? null : 'inicial',
+            unaColumna: true });
+        if (registro) {
+            llenarCamposPersona(campos, registro);
         }
+        return;
+    }
+    for (const campo of entidad.campos) {
         let control;
         if (campo.tipo === 'select') {
             control = crear('select', { name: campo.clave, id: 'campo-' + campo.clave, 'data-numero': '' });
@@ -222,6 +229,8 @@ function armarFormulario(registro = null) {
             const valor = registro[campo.clave];
             control.value = valor == null ? '' : (campo.tipo === 'time' ? hora(valor) : valor);
             control.disabled = campo.alEditar === 'bloquear';
+        } else if (campo.inicial !== undefined) {
+            control.value = campo.inicial;
         }
         const etiqueta = crear('label', { clase: 'campo' }, crear('span', { texto: campo.etiqueta }), control);
         if (registro && campo.alEditar === 'bloquear') {

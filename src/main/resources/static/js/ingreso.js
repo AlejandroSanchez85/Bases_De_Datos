@@ -1,4 +1,5 @@
 import { api } from './api.js';
+import { armarCamposPersona, cargarUbicaciones, contrasenaRepetida } from './persona.js';
 import { $, leerFormulario, limpiar, mostrarError, mostrarExito } from './util.js';
 
 // Pantalla de inicio de sesión y de registro de clientes
@@ -24,7 +25,7 @@ export function mostrarIngreso(mensaje) {
     $('aplicacion').hidden = true;
     $('pantalla-ingreso').hidden = false;
     $('form-entrar').reset();
-    $('form-registro').reset();
+    $('registro-campos').replaceChildren();      // el registro se arma limpio cuando se abre
     limpiar($('entrar-mensaje'), $('registro-mensaje'));
     mostrarPestana('entrar');
     if (mensaje) {
@@ -33,10 +34,19 @@ export function mostrarIngreso(mensaje) {
     $('entrar-correo').focus();
 }
 
-function mostrarPestana(pestana) {
+async function mostrarPestana(pestana) {
     document.querySelectorAll('[data-acceso]').forEach(b => b.classList.toggle('activo', b.dataset.acceso === pestana));
     $('form-entrar').hidden = pestana !== 'entrar';
     $('form-registro').hidden = pestana !== 'registro';
+    $('pantalla-ingreso').classList.toggle('registrando', pestana === 'registro');
+    if (pestana === 'registro' && $('registro-campos').childElementCount === 0) {
+        try {
+            await cargarUbicaciones();
+            armarCamposPersona($('registro-campos'), { contrasena: 'nueva' });
+        } catch (e) {
+            mostrarError($('registro-mensaje'), e.message);
+        }
+    }
 }
 
 async function entrar(evento) {
@@ -58,7 +68,7 @@ async function entrar(evento) {
 async function registrarse(evento) {
     evento.preventDefault();
     const datos = leerFormulario($('form-registro'));
-    if (datos.contrasena !== $('registro-repetir').value) {
+    if (datos.contrasena !== contrasenaRepetida($('registro-campos'))) {
         mostrarError($('registro-mensaje'), 'Las dos contraseñas no coinciden.');
         return;
     }

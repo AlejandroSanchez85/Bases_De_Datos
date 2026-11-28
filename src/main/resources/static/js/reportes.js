@@ -11,12 +11,17 @@ let reporte = 'resumen';
 let eventosCargados = false;
 
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+const GENEROS = { MASCULINO: 'Masculino', FEMENINO: 'Femenino', OTRO: 'Otro' };
+
+// «Bogotá» o «Chía, Cundinamarca»
+const lugar = f => (f.departamento.startsWith(f.ciudad) ? f.ciudad : `${f.ciudad}, ${f.departamento}`);
 
 const CARGAR = {
     'resumen': cargarResumen,
     'ocupacion': cargarOcupacion,
     'baja': cargarBajaOcupacion,
     'promedio': cargarSobrePromedio,
+    'perfil': cargarPerfil,
     'sin-compras': cargarSinCompras,
     'clientes': cargarClientes,
 };
@@ -84,16 +89,33 @@ async function cargarResumen() {
 }
 
 // Barras horizontales con el recaudo de cada grupo
-function pintarBarras(contenedor, grupos) {
-    const maximo = Math.max(...grupos.map(g => Number(g.recaudo)), 1);
+// medida: 'recaudo' (pesos) o 'boletas' (cantidad); el otro valor queda en el título
+function pintarBarras(contenedor, grupos, medida = 'recaudo') {
+    const maximo = Math.max(...grupos.map(g => Number(g[medida])), 1);
     contenedor.replaceChildren(crear('div', { clase: 'barras' }, ...grupos.map(g => {
         const relleno = crear('span');
-        relleno.style.width = (100 * Number(g.recaudo) / maximo) + '%';
+        relleno.style.width = (100 * Number(g[medida]) / maximo) + '%';
+        const texto = medida === 'recaudo' ? pesos(g.recaudo) : `${numero(g.boletas)} boletas`;
+        const titulo = medida === 'recaudo' ? `${numero(g.boletas)} boletas` : pesos(g.recaudo);
         return crear('div', { clase: 'barra-fila' },
             crear('span', { texto: g.nombre }),
             crear('div', { clase: 'pista' }, relleno),
-            crear('span', { clase: 'valor', texto: pesos(g.recaudo), title: numero(g.boletas) + ' boletas' }));
+            crear('span', { clase: 'valor', texto, title: titulo }));
     })));
+}
+
+// ---------- Perfil de compradores: género, edad y residencia de quien compra
+
+async function cargarPerfil() {
+    limpiar($('perfil-mensaje'));
+    try {
+        const perfil = await api.get('/api/reportes/perfil-compradores');
+        pintarBarras($('perfil-genero'), perfil.porGenero, 'boletas');
+        pintarBarras($('perfil-edad'), perfil.porRangoEdad, 'boletas');
+        pintarBarras($('perfil-departamento'), perfil.porDepartamento);
+    } catch (e) {
+        mostrarError($('perfil-mensaje'), e.message);
+    }
 }
 
 // ---------- Ocupación y recaudo por localidad
@@ -198,7 +220,9 @@ async function cargarSinCompras() {
         const filas = await api.get('/api/reportes/clientes-sin-compras');
         pintarTabla($('sin-compras-tabla'), [
             { titulo: 'Id', valor: f => f.idCliente, numero: true },
-            { titulo: 'Cliente', valor: f => f.nombreCompleto },
+            { titulo: 'Nombres', valor: f => f.nombres },
+            { titulo: 'Apellidos', valor: f => f.apellidos },
+            { titulo: 'Ciudad', valor: f => f.ciudad },
             { titulo: 'Fecha de registro', valor: f => fecha(f.fechaRegistro) },
         ], filas, { vacio: 'Todos los clientes han comprado al menos una vez.' });
     } catch (e) {
@@ -212,8 +236,11 @@ async function cargarClientes() {
         const filas = await api.get('/api/reportes/clientes');
         pintarTabla($('clientes-tabla'), [
             { titulo: 'Id', valor: f => f.idCliente, numero: true },
-            { titulo: 'Cliente', valor: f => f.nombreCompleto },
+            { titulo: 'Cliente', valor: f => `${f.nombres} ${f.apellidos}` },
             { titulo: 'Correo', valor: f => f.correoOculto },
+            { titulo: 'Género', valor: f => GENEROS[f.genero] },
+            { titulo: 'Edad', valor: f => f.edad, numero: true },
+            { titulo: 'Residencia', valor: f => lugar(f) },
             { titulo: 'Registro', valor: f => fecha(f.fechaRegistro) },
             { titulo: 'Compras', valor: f => numero(f.compras), numero: true },
             { titulo: 'Boletas vigentes', valor: f => numero(f.boletasVigentes), numero: true },
