@@ -5,7 +5,7 @@
 
 DROP VIEW IF EXISTS v_catalogo_eventos, v_ocupacion_localidad, v_boletas_detalle,
                     v_clientes_publico, v_boletas_vigentes, v_compras_resumen,
-                    v_cuentas CASCADE;
+                    v_cuentas, v_ubicaciones CASCADE;
 
 
 -- ---------------------------------------------------------------------
@@ -45,8 +45,8 @@ GROUP  BY e.id_evento, e.nombre, e.fecha, s.nombre,
 
 -- ---------------------------------------------------------------------
 -- VISTA: v_catalogo_eventos (simplificación)
--- Eventos que todavía no se han realizado, con su tipo, escenario, rango
--- de precios y cupos disponibles (RF-06, RF-07).
+-- Eventos que todavía no se han realizado, con su tipo, escenario, edad
+-- mínima, rango de precios y cupos disponibles (RF-06, RF-07).
 -- Se apoya en v_ocupacion_localidad para no repetir el conteo de cupos.
 -- Un evento sin tarifas no aparece: todavía no está a la venta.
 -- Usada en: GET /api/catalogo (cartelera del cliente)
@@ -62,6 +62,7 @@ SELECT e.id_evento,
        e.fecha,
        e.hora_inicio,
        e.hora_fin,
+       e.edad_minima,
        MIN(o.precio_vigente)       AS precio_desde,
        MAX(o.precio_vigente)       AS precio_hasta,
        SUM(o.aforo_maximo)         AS aforo_total,
@@ -72,7 +73,7 @@ JOIN   escenario   s ON s.id_escenario   = e.id_escenario
 JOIN   v_ocupacion_localidad o ON o.id_evento = e.id_evento
 WHERE  e.fecha >= CURRENT_DATE
 GROUP  BY e.id_evento, e.nombre, t.id_tipo_evento, t.nombre, s.id_escenario,
-          s.nombre, s.direccion, e.fecha, e.hora_inicio, e.hora_fin;
+          s.nombre, s.direccion, e.fecha, e.hora_inicio, e.hora_fin, e.edad_minima;
 
 
 -- ---------------------------------------------------------------------
@@ -87,7 +88,7 @@ SELECT b.id_boleta,
        co.fecha_compra,
        co.metodo_pago,
        c.id_cliente,
-       c.nombre_completo  AS cliente,
+       c.nombres || ' ' || c.apellidos  AS cliente,
        e.id_evento,
        e.nombre           AS evento,
        t.nombre           AS tipo_evento,
@@ -109,16 +110,23 @@ JOIN   localidad   l  ON l.id_localidad   = b.id_localidad;
 
 -- ---------------------------------------------------------------------
 -- VISTA: v_clientes_publico (seguridad)
--- Clientes sin documento ni teléfono y con el correo oculto. El analista
--- la consulta en lugar de la tabla cliente (RNF-04).
+-- Clientes para el analista, que la consulta en lugar de la tabla cliente
+-- (RNF-04). No muestra el documento, el celular, la dirección ni la fecha
+-- de nacimiento: solo la edad, el género y la ciudad, que bastan para los
+-- reportes, y el correo oculto.
 -- Las cantidades se calculan con subconsultas en el SELECT para no
 -- multiplicar filas al unir compras y boletas.
--- Usada en: GET /api/reportes/clientes
+-- Usada en: GET /api/reportes/clientes, /clientes-sin-compras y /perfil-compradores
 -- ---------------------------------------------------------------------
 CREATE VIEW v_clientes_publico AS
 SELECT c.id_cliente,
-       c.nombre_completo,
+       c.nombres,
+       c.apellidos,
        LEFT(c.correo, 1) || '***@' || SPLIT_PART(c.correo, '@', 2)  AS correo_oculto,
+       c.genero,
+       EXTRACT(YEAR FROM age(c.fecha_nacimiento))::INTEGER          AS edad,
+       ci.nombre                                                    AS ciudad,
+       d.nombre                                                     AS departamento,
        c.fecha_registro,
        (SELECT COUNT(*)
         FROM   compra co
@@ -127,7 +135,9 @@ SELECT c.id_cliente,
         FROM   boleta b
         JOIN   compra co ON co.id_compra = b.id_compra
         WHERE  co.id_cliente = c.id_cliente AND b.estado = 'Vendida') AS boletas_vigentes
-FROM   cliente c;
+FROM   cliente c
+JOIN   ciudad       ci ON ci.id_ciudad      = c.id_ciudad
+JOIN   departamento d  ON d.id_departamento = ci.id_departamento;
 
 
 -- ---------------------------------------------------------------------
@@ -156,7 +166,7 @@ SELECT co.id_compra,
        co.fecha_compra,
        co.metodo_pago,
        c.id_cliente,
-       c.nombre_completo                                       AS cliente,
+       c.nombres || ' ' || c.apellidos                         AS cliente,
        e.id_evento,
        e.nombre                                                AS evento,
        t.nombre                                                AS tipo_evento,
@@ -189,14 +199,36 @@ GROUP  BY co.id_compra, c.id_cliente, e.id_evento, t.id_tipo_evento, s.id_escena
 -- Usada en: POST /api/auth/login
 -- ---------------------------------------------------------------------
 CREATE VIEW v_cuentas AS
-SELECT correo, contrasena, rol, NULL::INTEGER AS id_cliente, nombre_completo
+SELECT correo, contrasena, rol, NULL::INTEGER AS id_cliente,
+       nombres || ' ' || apellidos AS nombre_completo
 FROM   empleado
 UNION ALL
-SELECT correo, contrasena, 'CLIENTE', id_cliente, nombre_completo
+SELECT correo, contrasena, 'CLIENTE', id_cliente, nombres || ' ' || apellidos
 FROM   cliente;
 
 
--- Verificación: las 7 vistas
+-- ---------------------------------------------------------------------
+-- VISTA: v_ubicaciones (simplificación)
+-- Cada ciudad con su departamento, su país y el indicativo telefónico del
+-- país. Une las tablas ciudad, departamento y pais. Con ella la página arma
+-- los selectores encadenados País -> Departamento -> Ciudad y la lista de
+-- indicativos del celular.
+-- Usada en: GET /api/ubicaciones (registro de clientes y Mi cuenta)
+-- ---------------------------------------------------------------------
+CREATE VIEW v_ubicaciones AS
+SELECT ci.id_ciudad,
+       ci.nombre  AS ciudad,
+       d.id_departamento,
+       d.nombre   AS departamento,
+       p.id_pais,
+       p.nombre   AS pais,
+       p.indicativo
+FROM   ciudad ci
+JOIN   departamento d ON d.id_departamento = ci.id_departamento
+JOIN   pais         p ON p.id_pais         = d.id_pais;
+
+
+-- Verificación: las 8 vistas
 SELECT table_name AS vista,
        CASE WHEN is_updatable = 'YES' THEN 'sí' ELSE 'no' END AS actualizable
 FROM   information_schema.views
