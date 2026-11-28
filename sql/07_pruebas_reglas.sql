@@ -1,8 +1,8 @@
 -- =====================================================================
 -- BogoTickets · 07 · Pruebas de las reglas de negocio y de los permisos
 -- Ejecutar cada prueba por separado: seleccionar sus líneas y pulsar F5.
--- Las pruebas 1 a 16 deben terminar en ERROR (eso demuestra la regla) y
--- no modifican datos. La 17 sí funciona y se deshace con ROLLBACK.
+-- Las pruebas 1 a 21 deben terminar en ERROR (eso demuestra la regla) y
+-- no modifican datos. La 22 sí funciona y se deshace con ROLLBACK.
 -- Requiere los scripts 01 a 05 recién ejecutados.
 -- =====================================================================
 
@@ -11,11 +11,11 @@
 -- El Palco Presidencial de La Traviata (evento 15) tiene 6 de 8 boletas
 -- vendidas. Se piden 3: las dos primeras entran, la tercera supera el aforo
 -- y PostgreSQL deshace TODO, también la compra.
--- a) Conteo antes (4223 compras, 10059 boletas):
+-- a) Conteo antes (4187 compras, 10050 boletas):
 SELECT (SELECT COUNT(*) FROM compra) AS compras, (SELECT COUNT(*) FROM boleta) AS boletas;
 -- b) Compra de 3 boletas -> ERROR: Localidad agotada: «Palco Presidencial» de «Temporada de ópera: ...
 SELECT fn_registrar_compra(5, 15, 15, 3);
--- c) Volver a ejecutar el conteo de a): sigue en 4223 y 10059.
+-- c) Volver a ejecutar el conteo de a): sigue en 4187 y 10050.
 
 
 -- Prueba 2 · No se venden boletas de un evento realizado (RN-17)
@@ -68,8 +68,8 @@ INSERT INTO compra (id_cliente, fecha_compra) VALUES (12, '2026-09-01 10:00');
 
 
 -- Prueba 11 · Una boleta cancelada no se reactiva (RN-20)
--- ERROR: La boleta 104 está cancelada y no se puede reactivar
-UPDATE boleta SET estado = 'Vendida' WHERE id_boleta = 104;
+-- ERROR: La boleta 17 está cancelada y no se puede reactivar
+UPDATE boleta SET estado = 'Vendida' WHERE id_boleta = 17;
 
 
 -- Prueba 12 · Solo se venden localidades con precio en el evento (RN-08)
@@ -78,7 +78,52 @@ UPDATE boleta SET estado = 'Vendida' WHERE id_boleta = 104;
 SELECT fn_registrar_compra(5, 17, 1, 1);
 
 
--- Prueba 13 · El analista solo lee vistas (RNF-04)
+-- Prueba 13 · El comprador tiene la edad mínima del evento (RN-25)
+-- La clienta 13 nació el 14 de mayo de 2010 y el Festival Estéreo Picnic
+-- (evento 42, 19 de marzo de 2027) es para mayores de 18 años.
+-- ERROR: «Festival Estéreo Picnic 2027» exige una edad mínima de 18 años y el comprador tendrá 16 años ...
+SELECT fn_registrar_compra(13, 42, 34, 1);
+-- Con un evento para mayores de 14 años sí puede comprar (no ejecutar si se
+-- quiere conservar el conteo de la prueba 1):
+-- SELECT fn_registrar_compra(13, 16, 5, 1);
+
+
+-- Prueba 14 · Para crear una cuenta se necesitan 14 años (RN-26)
+-- ERROR: ... violates check constraint "chk_cliente_nacimiento"
+INSERT INTO cliente (tipo_documento, numero_documento, nombres, apellidos, fecha_nacimiento, genero,
+                     correo, celular, id_ciudad, direccion, contrasena)
+VALUES ('TI', '1099887766', 'Tomás', 'Prieto Gil', '2015-02-10', 'MASCULINO', 'tomas.prieto@gmail.com',
+        '3001112233', (SELECT id_ciudad FROM v_ubicaciones WHERE ciudad = 'Bogotá'), 'Calle 10 # 5-20',
+        '$2a$10$' || repeat('a', 53));
+
+
+-- Prueba 15 · El documento corresponde a la edad (RN-27)
+-- Una persona de 15 años no puede registrarse con cédula de ciudadanía.
+-- ERROR: ... violates check constraint "chk_cliente_cc_mayor_edad"
+INSERT INTO cliente (tipo_documento, numero_documento, nombres, apellidos, fecha_nacimiento, genero,
+                     correo, celular, id_ciudad, direccion, contrasena)
+VALUES ('CC', '1099887766', 'Tomás', 'Prieto Gil', CURRENT_DATE - INTERVAL '15 years', 'MASCULINO',
+        'tomas.prieto@gmail.com', '3001112233', (SELECT id_ciudad FROM v_ubicaciones WHERE ciudad = 'Bogotá'),
+        'Calle 10 # 5-20', '$2a$10$' || repeat('a', 53));
+
+
+-- Prueba 16 · Una cuenta por tipo y número de documento (RN-09)
+-- La CC 1020456789 es de la clienta 1.
+-- ERROR: duplicate key value violates unique constraint "uq_cliente_documento"
+INSERT INTO cliente (tipo_documento, numero_documento, nombres, apellidos, fecha_nacimiento, genero,
+                     correo, celular, id_ciudad, direccion, contrasena)
+VALUES ('CC', '1020456789', 'Otra', 'Persona', '1990-01-01', 'FEMENINO', 'otra.persona@gmail.com',
+        '3001112233', (SELECT id_ciudad FROM v_ubicaciones WHERE ciudad = 'Bogotá'), 'Calle 10 # 5-20',
+        '$2a$10$' || repeat('a', 53));
+
+
+-- Prueba 17 · No se elimina una ciudad donde viven clientes (FK RESTRICT)
+-- La residencia guarda solo la ciudad; borrarla dejaría clientes sin residencia.
+-- ERROR: ... violates foreign key constraint "fk_cliente_ciudad" on table "cliente"
+DELETE FROM ciudad WHERE nombre = 'Bogotá';
+
+
+-- Prueba 18 · El analista solo lee vistas (RNF-04)
 -- Se hace lo mismo que la API: SET LOCAL ROLE dentro de la transacción. Al
 -- terminar el bloque DO, la sesión vuelve a ser postgres.
 -- ERROR: permission denied for table cliente (permiso denegado a la tabla cliente)
@@ -89,7 +134,7 @@ BEGIN
 END $$;
 
 
--- Prueba 14 · Ningún rol lee las contraseñas (RN-23)
+-- Prueba 19 · Ningún rol lee las contraseñas (RN-23)
 -- El administrador ve los datos de los clientes, pero no la columna contrasena.
 -- ERROR: permission denied for table cliente
 DO $$
@@ -99,20 +144,25 @@ BEGIN
 END $$;
 
 
--- Prueba 15 · Las contraseñas solo se guardan cifradas (RN-23)
+-- Prueba 20 · Las contraseñas solo se guardan cifradas (RN-23)
 -- ERROR: ... violates check constraint "chk_cliente_contrasena"
-INSERT INTO cliente (documento, nombre_completo, correo, telefono, contrasena)
-VALUES ('99887766', 'Cliente de prueba', 'prueba.clave@gmail.com', '3001112233', 'Cliente2026*');
+INSERT INTO cliente (tipo_documento, numero_documento, nombres, apellidos, fecha_nacimiento, genero,
+                     correo, celular, id_ciudad, direccion, contrasena)
+VALUES ('CC', '99887766', 'Cliente', 'De Prueba', '1990-01-01', 'OTRO', 'prueba.clave@gmail.com',
+        '3001112233', (SELECT id_ciudad FROM v_ubicaciones WHERE ciudad = 'Bogotá'), 'Calle 10 # 5-20',
+        'Cliente2026*');
 
 
--- Prueba 16 · Los correos @bogotickets.co son de los empleados (RN-24)
+-- Prueba 21 · Los correos @bogotickets.co son de los empleados (RN-24)
 -- ERROR: ... violates check constraint "chk_cliente_correo_dominio"
-INSERT INTO cliente (documento, nombre_completo, correo, telefono, contrasena)
-VALUES ('99887766', 'Cliente de prueba', 'prueba@bogotickets.co', '3001112233',
+INSERT INTO cliente (tipo_documento, numero_documento, nombres, apellidos, fecha_nacimiento, genero,
+                     correo, celular, id_ciudad, direccion, contrasena)
+VALUES ('CC', '99887766', 'Cliente', 'De Prueba', '1990-01-01', 'OTRO', 'prueba@bogotickets.co',
+        '3001112233', (SELECT id_ciudad FROM v_ubicaciones WHERE ciudad = 'Bogotá'), 'Calle 10 # 5-20',
         '$2a$10$' || repeat('a', 53));
 
 
--- Prueba 17 · Auditoría automática de precios (RNF-06)
+-- Prueba 22 · Auditoría automática de precios (RNF-06)
 -- Seleccionar desde BEGIN hasta el SELECT y pulsar F5: aparece el cambio
 -- registrado por el trigger. Como el cambio se hace en pgAdmin, el usuario
 -- es postgres; desde la API sería el correo del administrador.

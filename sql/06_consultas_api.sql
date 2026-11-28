@@ -33,7 +33,7 @@ ORDER  BY precio_vigente DESC, evento;
 -- NOT EXISTS busca si tiene alguna boleta; toda compra tiene al menos una,
 -- así que los que quedan nunca han comprado.
 -- ---------------------------------------------------------------------
-SELECT c.id_cliente, c.nombre_completo, c.fecha_registro
+SELECT c.id_cliente, c.nombres, c.apellidos, c.ciudad, c.fecha_registro
 FROM   v_clientes_publico c
 WHERE  NOT EXISTS (SELECT 1 FROM v_boletas_detalle b WHERE b.id_cliente = c.id_cliente)
 ORDER  BY c.id_cliente;
@@ -85,6 +85,53 @@ FROM   v_boletas_detalle
 WHERE  estado = 'Vendida'
 GROUP  BY 1
 ORDER  BY 1;
+
+
+-- ---------------------------------------------------------------------
+-- PERFIL DE COMPRADORES
+-- GET /api/reportes/perfil-compradores                (rol_analista)
+-- Boletas vendidas según quién compra. v_clientes_publico entrega la edad
+-- y la ciudad, no la fecha de nacimiento ni la dirección. El rango de edad
+-- se arma con CASE y se ordena por la menor edad de cada rango.
+-- ---------------------------------------------------------------------
+SELECT CASE WHEN c.edad < 18 THEN '14 a 17 años'
+            WHEN c.edad < 25 THEN '18 a 24 años'
+            WHEN c.edad < 35 THEN '25 a 34 años'
+            WHEN c.edad < 45 THEN '35 a 44 años'
+            WHEN c.edad < 60 THEN '45 a 59 años'
+            ELSE '60 años o más' END AS nombre,
+       COUNT(*) AS boletas, SUM(b.precio_pagado) AS recaudo
+FROM   v_boletas_detalle b
+JOIN   v_clientes_publico c ON c.id_cliente = b.id_cliente
+WHERE  b.estado = 'Vendida'
+GROUP  BY 1
+ORDER  BY MIN(c.edad);
+
+-- Por género (INITCAP muestra «Femenino») y por departamento de residencia
+SELECT INITCAP(c.genero) AS nombre, COUNT(*) AS boletas, SUM(b.precio_pagado) AS recaudo
+FROM   v_boletas_detalle b
+JOIN   v_clientes_publico c ON c.id_cliente = b.id_cliente
+WHERE  b.estado = 'Vendida'
+GROUP  BY 1
+ORDER  BY boletas DESC;
+
+SELECT c.departamento AS nombre, COUNT(*) AS boletas, SUM(b.precio_pagado) AS recaudo
+FROM   v_boletas_detalle b
+JOIN   v_clientes_publico c ON c.id_cliente = b.id_cliente
+WHERE  b.estado = 'Vendida'
+GROUP  BY 1
+ORDER  BY recaudo DESC
+LIMIT  10;
+
+
+-- ---------------------------------------------------------------------
+-- VISTA v_ubicaciones
+-- GET /api/ubicaciones  (selectores País -> Departamento -> Ciudad del
+-- registro y de Mi cuenta, y lista de indicativos del celular)
+-- ---------------------------------------------------------------------
+SELECT *
+FROM   v_ubicaciones
+ORDER  BY pais, departamento, ciudad;
 
 
 -- ---------------------------------------------------------------------
